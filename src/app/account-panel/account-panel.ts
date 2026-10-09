@@ -329,8 +329,8 @@ export class AccountPanel {
     this.graph.title = `${valueLabel}: ${shown.map((dimension: Dimension): string => this.dimensionLabel(dimension)).join(' × ')}`;
     if (shown.length === 2) {
       this.graph.subtitle = hasBand
-        ? 'Zwei Flächen: Minimum und Maximum über alle übrigen Größen; graue Ebene = 0 €'
-        : 'Graue Ebene = 0 €';
+        ? 'Zwei Flächen: Minimum und Maximum über alle übrigen Größen; flache Ebene = 0 €'
+        : 'Flache Ebene = 0 €';
       this.buildSurface(shown[0], shown[1], groups, valueLabel, hasBand);
     } else {
       this.graph.subtitle = hasBand ? 'Spanne von Minimum bis Maximum über alle übrigen Größen' : '';
@@ -358,32 +358,35 @@ export class AccountPanel {
     const cmax: number = Math.max(0, ...all.map((group: ValueRange): number => group.max));
     const hover = (name: string): string =>
       `${xLabel}: %{x}<br>${yLabel}: %{y}<br>${name}: %{z:,.2f} €<extra></extra>`;
-    const surface = (name: string, pick: (r: ValueRange) => number, showscale: boolean): Data => ({
+    const colorscale: [number, string][] = this.surfaceColorscale(cmin, cmax);
+    const surface = (name: string, pick: (r: ValueRange) => number, showscale: boolean, opacity: number): Data => ({
       name,
       hovertemplate: hover(name),
       x: xValues,
       y: yValues,
       z: z(pick),
-      opacity: 0.8,
+      opacity,
       type: 'surface',
-      colorscale: 'Viridis',
+      colorscale,
       showscale,
-      colorbar: {ticksuffix: ' €', outlinewidth: 0},
+      colorbar: {ticksuffix: ' €', outlinewidth: 0, thickness: 16},
       cmin,
       cmax,
     });
+    const outline: string = this.themeColor('--mat-sys-outline');
 
     this.graph.data = [
-      surface(hasBand ? 'Minimum' : valueLabel, (r: ValueRange): number => r.min, true),
-      ...(hasBand ? [surface('Maximum', (r: ValueRange): number => r.max, false)] : []),
+      surface(hasBand ? 'Minimum' : valueLabel, (r: ValueRange): number => r.min, true, 0.9),
+      // Das Maximum durchscheinender, damit das Minimum darunter sichtbar bleibt
+      ...(hasBand ? [surface('Maximum', (r: ValueRange): number => r.max, false, 0.55)] : []),
       {
         name: '0',
         x: [xValues[0], xValues[xValues.length - 1]],
         y: [yValues[0], yValues[yValues.length - 1]],
         z: [[0, 0], [0, 0]],
-        opacity: 0.6,
+        opacity: 0.35,
         type: 'surface',
-        colorscale: [[0, 'grey'], [1, 'grey']],
+        colorscale: [[0, outline], [1, outline]],
         hoverinfo: 'none',
         showscale: false,
         cmin,
@@ -395,11 +398,33 @@ export class AccountPanel {
       margin: {l: 0, r: 0, t: 0, b: 0},
       scene: {
         // Bei wenigen Werten nur ganze Zahlen beschriften, sonst erscheinen „2,2 Tage“
-        xaxis: {title: {text: xLabel}, ...(xValues.length <= 10 ? {dtick: 1} : {})},
-        yaxis: {title: {text: yLabel}, ...(yValues.length <= 10 ? {dtick: 1} : {})},
-        zaxis: {ticksuffix: ' €', separatethousands: true, tickformat: '.2f', title: {text: valueLabel}}
+        xaxis: {...this.sceneAxisStyle(), title: {text: xLabel}, ...(xValues.length <= 10 ? {dtick: 1} : {})},
+        yaxis: {...this.sceneAxisStyle(), title: {text: yLabel}, ...(yValues.length <= 10 ? {dtick: 1} : {})},
+        zaxis: {
+          ...this.sceneAxisStyle(), ticksuffix: ' €', separatethousands: true, tickformat: ',.0f', title: {text: valueLabel}
+        },
       }
     };
+  }
+
+  /**
+   * Farbverlauf aus dem Theme statt einer fremden Skala: Überschüsse von Secondary-Container bis Primary,
+   * Defizite von Error-Container bis Error. Der harte Wechsel bei 0 € macht die Grenze sichtbar.
+   */
+  private surfaceColorscale(cmin: number, cmax: number): [number, string][] {
+    const primary: string = this.themeColor('--mat-sys-primary');
+    // Der Primary-Container der Cyan-Palette ist im hellen Modus grell; der Secondary-Container ist ruhiger
+    const surplusStart: string = this.themeColor('--mat-sys-secondary-container');
+    if (cmin >= 0 || cmax <= cmin) {
+      return [[0, surplusStart], [1, primary]];
+    }
+    const error: string = this.themeColor('--mat-sys-error');
+    const errorContainer: string = this.themeColor('--mat-sys-error-container');
+    if (cmax <= 0) {
+      return [[0, error], [1, errorContainer]];
+    }
+    const zero: number = -cmin / (cmax - cmin);
+    return [[0, error], [zero, errorContainer], [Math.min(1, zero + 1e-6), surplusStart], [1, primary]];
   }
 
   private buildLine(axis: Dimension, groups: Map<number, ValueRange>, valueLabel: string, hasBand: boolean): void {
@@ -482,6 +507,11 @@ export class AccountPanel {
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
       font: {family: 'Roboto, sans-serif', color: getComputedStyle(document.body).color},
+      hoverlabel: {
+        bgcolor: this.themeColor('--mat-sys-surface-container-highest'),
+        bordercolor: this.themeColor('--mat-sys-outline-variant'),
+        font: {family: 'Roboto, sans-serif', color: this.themeColor('--mat-sys-on-surface')},
+      },
     };
   }
 
@@ -506,6 +536,15 @@ export class AccountPanel {
         y1: 0,
         line: {color: this.themeColor('--mat-sys-error'), width: 1, dash: 'dash'}
       }],
+    };
+  }
+
+  private sceneAxisStyle() {
+    return {
+      gridcolor: this.themeColor('--mat-sys-outline-variant'),
+      linecolor: this.themeColor('--mat-sys-outline'),
+      zerolinecolor: this.themeColor('--mat-sys-outline'),
+      showbackground: false,
     };
   }
 
