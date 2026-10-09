@@ -192,37 +192,3 @@ mat-card-content {
     justify-content: flex-end;
   }
 }
-
-.dimensions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.dimensions mat-form-field {
-  width: 240px;
-}
-
-.plot {
-  display: block;
-  margin-top: 16px;
-  height: 640px;
-}
-
-.plot.distribution-plot {
-  height: 420px;
-}
-
-@media (max-width: 599px) {
-  .plot {
-    height: 420px;
-  }
-
-  .plot.distribution-plot {
-    height: 320px;
-  }
-
-  .dimensions mat-form-field {
-    width: 100%;
-  }
-}

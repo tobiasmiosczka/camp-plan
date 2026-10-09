@@ -125,7 +125,7 @@ export class ScenarioResults {
   /** Alle Werte, die die Dimension annehmen kann. */
   public domain(dimension: Dimension): number[] {
     if (dimension.kind === 'city') {
-      return range(this.ranges.get(dimension.city) ?? {start: 0, end: 0, step: 1});
+      return range(this.ranges.get(dimension.city) ?? {start: 0, end: 0});
     }
     switch (dimension.type) {
       case ContextType.PARTICIPANTS:

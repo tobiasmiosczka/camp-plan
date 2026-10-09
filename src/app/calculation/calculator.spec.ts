@@ -5,11 +5,11 @@ import {
 } from './position';
 
 describe('Calculator', () => {
-  const a = new City('A', {start: 0, end: 3, step: 1});
-  const b = new City('B', {start: 1, end: 2, step: 1});
+  const a = new City('A', {start: 0, end: 3});
+  const b = new City('B', {start: 1, end: 2});
   const contextRange = new ContextRange(new Map<ContextType, Range>([
-    [ContextType.LEADERS, {start: 0, end: 2, step: 1}],
-    [ContextType.DAYS, {start: 1, end: 3, step: 1}],
+    [ContextType.LEADERS, {start: 0, end: 2}],
+    [ContextType.DAYS, {start: 1, end: 3}],
   ]), [a, b]);
   const debit = [
     new Position('Essen', 7, [PER_PERSON, PER_DAY]),

@@ -15,14 +15,14 @@ describe('plan serialization', () => {
 
   it('keeps cities and modifiers that point to them', () => {
     const plan = defaultPlan();
-    const bottrop = new City('Bottrop', {start: 0, end: 5, step: 1});
+    const bottrop = new City('Bottrop', {start: 0, end: 5});
     plan.contextRange.addCity(bottrop);
     plan.credit.push(new Position('Zuschuss Bottrop', 3, [new PerCityModifier(bottrop)]));
     const restored = planFromJson(planToJson(plan));
 
     const cities = restored.contextRange.getCities();
     expect(cities.map(city => city.getName())).toEqual(['Dinslaken', 'Voerde', 'Hünxe/Wesel', 'Bottrop', 'Sonstige']);
-    expect(cities[3].getParticipants()).toEqual({start: 0, end: 5, step: 1});
+    expect(cities[3].getParticipants()).toEqual({start: 0, end: 5});
     const modifier = restored.credit[restored.credit.length - 1].getModifiers()[0];
     expect(modifier instanceof PerCityModifier && modifier.getCity()).toBe(cities[3]);
   });
@@ -36,7 +36,7 @@ describe('plan serialization', () => {
 
     expect(restored.contextRange.getCities().map(city => city.getName())).toEqual(['Sonstige']);
     expect(restored.contextRange.getCities()[0].isOthers()).toBe(true);
-    expect(restored.contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 10, end: 20, step: 1});
+    expect(restored.contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 10, end: 20});
   });
 
   it('restores an empty plan with only „Sonstige“', () => {
@@ -56,7 +56,7 @@ describe('plan serialization', () => {
     const cities = plan.contextRange.getCities();
 
     expect(cities.map(city => [city.getName(), city.isOthers()])).toEqual([['Voerde', false], ['Sonstige', true]]);
-    expect(cities[1].getParticipants()).toEqual({start: 1, end: 2, step: 1});
+    expect(cities[1].getParticipants()).toEqual({start: 1, end: 2});
     expect(plan.contextRange.removeCity(cities[1])).toBe(1);
     expect(cities.length).toBe(2);
   });

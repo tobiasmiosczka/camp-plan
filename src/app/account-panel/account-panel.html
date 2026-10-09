@@ -119,54 +119,9 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card appearance="outlined" class="chart">
-    <mat-card-header>
-      <mat-card-title>{{ graph.title }}</mat-card-title>
-      <mat-card-subtitle>{{ graph.subtitle }}</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <div class="dimensions">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>X-Achse</mat-label>
-          <mat-select [value]="xDimension" [compareWith]="compareDimension" (selectionChange)="setDimension('x', $event.value)">
-            @for (option of dimensionOptions; track $index) {
-              <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Y-Achse</mat-label>
-          <mat-select [value]="yDimension ?? 'none'" [compareWith]="compareDimension"
-                      (selectionChange)="setDimension('y', $event.value === 'none' ? null : $event.value)">
-            <mat-option value="none">keine</mat-option>
-            @for (option of dimensionOptions; track $index) {
-              @if (!sameDimension(option.dimension, xDimension)) {
-                <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>
-              }
-            }
-          </mat-select>
-        </mat-form-field>
-      </div>
-      <plotly-plot class="plot" [data]="graph.data" [layout]="graph.layout" [revision]="graph.revision"
-                   [useResizeHandler]="true" [style]="{width: '100%', height: '100%'}"></plotly-plot>
-    </mat-card-content>
-  </mat-card>
+  <app-scenario-chart class="chart" [results]="results" [cities]="contextRange.getCities()"
+                      [perParticipant]="perParticipant" [version]="version"></app-scenario-chart>
 
-  <mat-card appearance="outlined" class="distribution">
-    <mat-card-header>
-      <mat-card-title>Verteilung der Szenarien</mat-card-title>
-      <mat-card-subtitle>{{ distribution.subtitle }}</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <mat-button-toggle-group [value]="distributionMetric" (change)="setDistributionMetric($event.value)"
-                               aria-label="Dargestellte Größe">
-        <mat-button-toggle value="balance">Überschuss</mat-button-toggle>
-        <mat-button-toggle value="debit">Ausgaben</mat-button-toggle>
-        <mat-button-toggle value="credit">Einnahmen</mat-button-toggle>
-      </mat-button-toggle-group>
-      <plotly-plot class="plot distribution-plot" [data]="distribution.data" [layout]="distribution.layout"
-                   [revision]="distribution.revision" [useResizeHandler]="true"
-                   [style]="{width: '100%', height: '100%'}"></plotly-plot>
-    </mat-card-content>
-  </mat-card>
+  <app-distribution-chart class="distribution" [results]="results" [calculation]="calculation"
+                          [perParticipant]="perParticipant" [version]="version"></app-distribution-chart>
 </div>

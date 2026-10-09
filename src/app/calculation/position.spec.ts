@@ -12,11 +12,11 @@ describe('PER_NIGHT', () => {
 });
 
 describe('ContextRange with cities', () => {
-  const a = new City('A', {start: 0, end: 2, step: 1});
-  const b = new City('B', {start: 1, end: 2, step: 1});
+  const a = new City('A', {start: 0, end: 2});
+  const b = new City('B', {start: 1, end: 2});
   const contextRange = new ContextRange(new Map<ContextType, Range>([
-    [ContextType.LEADERS, {start: 1, end: 1, step: 1}],
-    [ContextType.DAYS, {start: 1, end: 1, step: 1}],
+    [ContextType.LEADERS, {start: 1, end: 1}],
+    [ContextType.DAYS, {start: 1, end: 1}],
   ]), [a, b]);
 
   it('combines every participant count of every city', () => {
@@ -26,7 +26,7 @@ describe('ContextRange with cities', () => {
     expect(permutations.map(c => [c.getParticipantsFrom(a), c.getParticipantsFrom(b)]))
       .toEqual([[0, 1], [0, 2], [1, 1], [1, 2], [2, 1], [2, 2]]);
     expect(permutations.map(c => c.get(ContextType.PARTICIPANTS))).toEqual([1, 2, 2, 3, 3, 4]);
-    expect(contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 1, end: 4, step: 1});
+    expect(contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 1, end: 4});
   });
 
   it('counts only participants of the chosen city', () => {
@@ -44,7 +44,7 @@ describe('ContextRange with cities', () => {
   });
 
   it('skips scenarios without participants', () => {
-    const empty = new ContextRange(new Map<ContextType, Range>(), [new City('A', {start: 0, end: 0, step: 1})]);
+    const empty = new ContextRange(new Map<ContextType, Range>(), [new City('A', {start: 0, end: 0})]);
 
     expect(empty.getPermutations()).toEqual([]);
   });

@@ -2,12 +2,12 @@ import {City, Context, ContextRange, ContextType, Range} from './position';
 import {Dimension, histogram, ScenarioCache, ScenarioResults} from './scenarios';
 
 describe('ScenarioResults', () => {
-  const a = new City('A', {start: 0, end: 2, step: 1});
-  const b = new City('B', {start: 1, end: 3, step: 1});
-  const c = new City('C', {start: 0, end: 2, step: 1});
+  const a = new City('A', {start: 0, end: 2});
+  const b = new City('B', {start: 1, end: 3});
+  const c = new City('C', {start: 0, end: 2});
   const contextRange = new ContextRange(new Map<ContextType, Range>([
-    [ContextType.LEADERS, {start: 1, end: 2, step: 1}],
-    [ContextType.DAYS, {start: 1, end: 1, step: 1}],
+    [ContextType.LEADERS, {start: 1, end: 2}],
+    [ContextType.DAYS, {start: 1, end: 1}],
   ]), [a, b, c]);
   // Hängt nur von der Gesamtzahl, A und den Leitern ab – wie Positionen, die nur auf A verweisen
   const value = (context: Context): number =>
@@ -69,10 +69,10 @@ describe('histogram', () => {
 
 describe('ScenarioCache', () => {
   it('reuses scenarios until ranges or cities change', () => {
-    const city = new City('A', {start: 1, end: 2, step: 1});
+    const city = new City('A', {start: 1, end: 2});
     const contextRange = new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 1, end: 1, step: 1}],
-      [ContextType.DAYS, {start: 1, end: 1, step: 1}],
+      [ContextType.LEADERS, {start: 1, end: 1}],
+      [ContextType.DAYS, {start: 1, end: 1}],
     ]), [city]);
     const cache = new ScenarioCache();
 

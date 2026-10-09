@@ -37,14 +37,14 @@ interface PlanData {
 }
 
 export function defaultPlan(): Plan {
-  const dinslaken = new City('Dinslaken', {start: 20, end: 60, step: 1});
-  const voerde = new City('Voerde', {start: 0, end: 2, step: 1});
-  const huenxeWesel = new City('Hünxe/Wesel', {start: 0, end: 2, step: 1});
-  const others = City.others({start: 0, end: 2, step: 1});
+  const dinslaken = new City('Dinslaken', {start: 20, end: 60});
+  const voerde = new City('Voerde', {start: 0, end: 2});
+  const huenxeWesel = new City('Hünxe/Wesel', {start: 0, end: 2});
+  const others = City.others({start: 0, end: 2});
   return {
     contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 2, end: 8, step: 1}],
-      [ContextType.DAYS, {start: 2, end: 3, step: 1}],
+      [ContextType.LEADERS, {start: 2, end: 8}],
+      [ContextType.DAYS, {start: 2, end: 3}],
     ]), [dinslaken, voerde, huenxeWesel, others]),
     debit: [
       new Position('Verpflegung', 7, [PER_PERSON, PER_DAY]),
@@ -74,8 +74,8 @@ export function defaultPlan(): Plan {
 export function emptyPlan(): Plan {
   return {
     contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 2, end: 8, step: 1}],
-      [ContextType.DAYS, {start: 2, end: 3, step: 1}],
+      [ContextType.LEADERS, {start: 2, end: 8}],
+      [ContextType.DAYS, {start: 2, end: 3}],
     ]), []),
     debit: [],
     credit: [],
@@ -233,7 +233,7 @@ function rangeFromData(data: unknown, label: string): Range {
     || data['start'] > data['end']) {
     throw new Error(`Ungültiger Bereich für ${label}.`);
   }
-  return {start: data['start'], end: data['end'], step: 1};
+  return {start: data['start'], end: data['end']};
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

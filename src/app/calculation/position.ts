@@ -4,15 +4,15 @@ export enum ContextType {
   DAYS
 }
 
+/** Ganzzahliger Bereich, beide Grenzen eingeschlossen. */
 export interface Range {
   start: number;
   end: number;
-  step: number;
 }
 
 export function range(range: Range): number[] {
   const result: number[] = [];
-  for (let v = range.start; v <= range.end; v += range.step) {
+  for (let v = range.start; v <= range.end; v++) {
     result.push(v);
   }
   return result;
@@ -34,7 +34,7 @@ export class City {
   }
 
   /** Sammelposten für alle Teilnehmenden ohne eigene Stadt; gibt es in jedem Plan genau einmal. */
-  public static others(participants: Range = {start: 0, end: 0, step: 1}): City {
+  public static others(participants: Range = {start: 0, end: 0}): City {
     return new City(City.OTHERS_NAME, participants, true);
   }
 
@@ -76,9 +76,9 @@ export class ContextRange {
       // Jede Gesamtzahl dazwischen ist erreichbar; ohne Teilnehmer wird nicht gerechnet
       const start: number = this.cities.reduce((sum: number, city: City): number => sum + city.getParticipants().start, 0);
       const end: number = this.cities.reduce((sum: number, city: City): number => sum + city.getParticipants().end, 0);
-      return {start: Math.max(1, start), end, step: 1};
+      return {start: Math.max(1, start), end};
     }
-    return this.map.get(type) || {start: 0, end: 0, step: 0};
+    return this.map.get(type) || {start: 0, end: 0};
   }
 
   public getCities(): City[] {
@@ -119,7 +119,7 @@ export class ContextRange {
   /** Teilnehmer je relevanter Stadt zusammen mit der jeweiligen Gesamtzahl. */
   private cityPermutations(relevant: City[]): [Map<City, number>, number][] {
     let result: [Map<City, number>, number][] = [[new Map<City, number>(), 0]];
-    const rest: Range = {start: 0, end: 0, step: 1};
+    const rest: Range = {start: 0, end: 0};
     for (const city of this.cities) {
       const participants: Range = city.getParticipants();
       if (!relevant.includes(city)) {
