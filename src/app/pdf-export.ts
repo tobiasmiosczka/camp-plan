@@ -30,6 +30,25 @@ export interface Report {
   chart: { title: string; subtitle: string; image: string } | null;
 }
 
+/** Sparschwein „savings“ aus Material Symbols (wie Favicon und App-Leiste), viewBox 0 -960 960 960. */
+const PIGGY_BANK_PATH = 'M668.5-531.5Q680-543 680-560t-11.5-28.5Q657-600 640-600t-28.5 11.5Q600-577 600-560t11.5 28.5Q623-520 640-520t28.5-11.5ZM320-620h200v-60H320v60ZM180-120q-34-114-67-227.5T80-580q0-92 64-156t156-64h200q29-38 70.5-59t89.5-21q25 0 42.5 17.5T720-820q0 6-1.5 12t-3.5 11q-4 11-7.5 22.5T702-751l91 91h87v279l-113 37-67 224H480v-80h-80v80H180Zm45-60h115v-80h200v80h115l63-210 102-35v-175h-52L640-728q1-25 6.5-48.5T658-824q-38 10-72 29.5T534-740H300q-66.29 0-113.14 46.86Q140-646.29 140-580q0 103.16 29 201.58Q198-280 225-180Zm255-322Z';
+
+/** Primary-Farbe des hellen Themes – die PDF ist immer hell. */
+const PRIMARY: [number, number, number] = [0, 106, 106];
+
+/** jsPDF bettet kein SVG ein; deshalb wird der Pfad über eine Canvas zu einem PNG. */
+function piggyBankImage(size: number = 160): string {
+  const canvas: HTMLCanvasElement = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context: CanvasRenderingContext2D = canvas.getContext('2d')!;
+  context.scale(size / 960, size / 960);
+  context.translate(0, 960);
+  context.fillStyle = `rgb(${PRIMARY.join(',')})`;
+  context.fill(new Path2D(PIGGY_BANK_PATH));
+  return canvas.toDataURL('image/png');
+}
+
 export function formatEuro(value: number): string {
   return value.toLocaleString('de', {style: 'currency', currency: 'EUR'});
 }
@@ -87,7 +106,7 @@ export class PdfExport {
         startY: y,
         margin: {left: margin, right: margin},
         styles: {font: 'helvetica', fontSize: 9, cellPadding: 1.5},
-        headStyles: {fillColor: [0, 105, 115]},
+        headStyles: {fillColor: PRIMARY},
         footStyles: {fillColor: [230, 236, 236], textColor: 20, fontStyle: 'bold'},
         ...options,
       });
@@ -103,7 +122,9 @@ export class PdfExport {
       }, [1, 3]);
     };
 
-    doc.setFont('helvetica', 'bold').setFontSize(18).text('CampPlan – Kalkulation', margin, y + 6);
+    const icon: number = 8;
+    doc.addImage(piggyBankImage(), 'PNG', margin, y, icon, icon);
+    doc.setFont('helvetica', 'bold').setFontSize(18).text('CampPlan – Kalkulation', margin + icon + 3, y + 6.5);
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100)
       .text(`Stand: ${new Date().toLocaleString('de', {dateStyle: 'long', timeStyle: 'short'})}`, margin, y + 12)
       .setTextColor(0);
@@ -133,8 +154,9 @@ export class PdfExport {
     positions('Einnahmen', report.credit, report.creditTotal);
 
     heading(`Überschuss${per}`);
+    const balanceColor: [number, number, number] = report.balance.min < 0 ? [180, 30, 30] : PRIMARY;
     doc.setFont('helvetica', 'bold').setFontSize(16)
-      .setTextColor(report.balance.min < 0 ? 180 : 0, report.balance.min < 0 ? 30 : 105, report.balance.min < 0 ? 30 : 115)
+      .setTextColor(...balanceColor)
       .text(formatEuroRange(report.balance), margin, y + 5)
       .setTextColor(0);
     y += 9;
