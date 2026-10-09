@@ -1,0 +1,82 @@
+.text-right {
+  text-align: right;
+}
+
+.dense {
+  --mat-form-field-container-height: 40px;
+  --mat-form-field-container-vertical-padding: 8px;
+  --mat-form-field-filled-with-label-container-padding-top: 8px;
+  --mat-form-field-filled-with-label-container-padding-bottom: 8px;
+  width: 100%;
+}
+
+.dense.name {
+  width: 190px;
+}
+
+.dense.name textarea {
+  resize: none;
+  overflow: hidden;
+}
+
+.dense.amount {
+  width: 96px;
+}
+
+.group-size {
+  width: 3em;
+  margin: 0 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  text-align: center;
+}
+
+:host {
+  display: block;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  --mat-table-background-color: transparent;
+}
+
+th.mat-mdc-header-cell {
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+th.mat-mdc-header-cell,
+td.mat-mdc-cell {
+  padding: 4px 8px;
+}
+
+th.mat-mdc-header-cell:first-of-type,
+td.mat-mdc-cell:first-of-type {
+  padding-left: 0;
+}
+
+th.mat-mdc-header-cell:last-of-type,
+td.mat-mdc-cell:last-of-type {
+  padding-right: 0;
+}
+
+td.sum {
+  min-width: 90px;
+  font-variant-numeric: tabular-nums;
+}
+
+.add-position {
+  margin-top: 8px;
+}
+
+.dense.amount input {
+  text-align: right;
+}

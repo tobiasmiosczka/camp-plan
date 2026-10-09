@@ -1,0 +1,80 @@
+<div class="table-scroll">
+<table mat-table [dataSource]="positions">
+  <ng-container matColumnDef="position-name">
+    <th mat-header-cell *matHeaderCellDef>Name</th>
+    <td mat-cell *matCellDef="let element">
+      <mat-form-field subscriptSizing="dynamic" class="dense name">
+        <textarea matInput cdkTextareaAutosize cdkAutosizeMinRows="1" aria-label="Name"
+                  (keydown.enter)="$event.preventDefault()"
+                  [ngModel]="element.getTitle()" (ngModelChange)="setTitle(element, $event)"></textarea>
+      </mat-form-field>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="position-amount">
+    <th mat-header-cell *matHeaderCellDef class="text-right">Betrag (€)</th>
+    <td mat-cell *matCellDef="let element" class="text-right">
+      <mat-form-field subscriptSizing="dynamic" class="dense amount">
+        <input matInput type="number" step="0.01" class="text-right" aria-label="Betrag in Euro"
+               [ngModel]="element.getAmount()" (ngModelChange)="setAmount(element, $event)"/>
+      </mat-form-field>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="position-modifiers">
+    <th mat-header-cell *matHeaderCellDef>Multipliziert mit</th>
+    <td mat-cell *matCellDef="let element">
+      <mat-chip-set>
+        @for (modifier of element.getModifiers(); track $index) {
+          <mat-chip (removed)="removeModifier(element, modifier)">
+            @if (isGroup(modifier)) {
+              pro
+              <input type="number" min="1" class="group-size" aria-label="Gruppengröße" (keydown)="$event.stopPropagation()"
+                     [ngModel]="modifier.getGroupSize()" (ngModelChange)="setGroupSize(modifier, $event)"/>
+              {{ modifier.getUnit() }}
+            } @else {
+              {{ modifier.getDescription() }}
+            }
+            <button matChipRemove [attr.aria-label]="'Entferne ' + modifier.getDescription()">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip>
+        }
+        <button mat-icon-button [matMenuTriggerFor]="modifierMenu" aria-label="Faktor hinzufügen"
+                matTooltip="Faktor hinzufügen">
+          <mat-icon>add</mat-icon>
+        </button>
+      </mat-chip-set>
+      <mat-menu #modifierMenu="matMenu">
+        @for (option of modifierOptions; track option.label) {
+          <button mat-menu-item (click)="addModifier(element, option)">{{ option.label }}</button>
+        }
+      </mat-menu>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="position-sum">
+    <th mat-header-cell *matHeaderCellDef class="text-right">{{ perParticipant ? 'pro Teilnehmer' : 'Summe' }}</th>
+    <td mat-cell *matCellDef="let element" class="text-right sum">
+      {{ getSum(element, perParticipant) | currencyRange }}
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="position-actions">
+    <th mat-header-cell *matHeaderCellDef></th>
+    <td mat-cell *matCellDef="let element">
+      <button mat-icon-button (click)="removePosition(element)" aria-label="Position löschen"
+              matTooltip="Position löschen">
+        <mat-icon>delete</mat-icon>
+      </button>
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+</table>
+</div>
+<button mat-button class="add-position" (click)="addPosition()">
+  <mat-icon>add</mat-icon>
+  Position hinzufügen
+</button>

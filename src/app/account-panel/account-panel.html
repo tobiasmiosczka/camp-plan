@@ -1,0 +1,92 @@
+<div class="page">
+  <mat-card appearance="outlined" class="settings">
+    <mat-card-header>
+      <mat-card-title>Rahmenbedingungen</mat-card-title>
+      <mat-card-subtitle>Bereiche, für die das Lager durchgerechnet wird</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="range-grid">
+        @for (row of contextRows; track row.type) {
+          <fieldset class="range">
+            <legend>
+              <mat-icon aria-hidden="true">{{ row.icon }}</mat-icon>
+              {{ row.label }}
+            </legend>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>von</mat-label>
+              <input matInput type="number" [min]="row.min" step="1"
+                     [ngModel]="contextRange.get(row.type).start"
+                     (ngModelChange)="setRange(row.type, 'start', $event)"/>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>bis</mat-label>
+              <input matInput type="number" [min]="contextRange.get(row.type).start" step="1"
+                     [ngModel]="contextRange.get(row.type).end"
+                     (ngModelChange)="setRange(row.type, 'end', $event)"/>
+            </mat-form-field>
+          </fieldset>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="summary" [class.negative]="balance.min < 0">
+    <mat-card-content>
+      <div class="summary-label">Überschuss {{ perParticipant ? 'pro Teilnehmer' : 'gesamt' }}</div>
+      <div class="summary-value">{{ balance | currencyRange }}</div>
+      @if (balance.min < 0) {
+        <div class="summary-hint">
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          In mindestens einem Szenario entsteht ein Defizit.
+        </div>
+      }
+      <mat-slide-toggle class="per-participant" [(ngModel)]="perParticipant" (change)="compute()">
+        Beträge pro Teilnehmer
+      </mat-slide-toggle>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="t-account-card">
+    <mat-card-content>
+      <div class="t-account">
+        <h2 class="t-head debit">
+          <mat-icon aria-hidden="true">trending_down</mat-icon>
+          Ausgaben
+        </h2>
+        <h2 class="t-head credit">
+          <mat-icon aria-hidden="true">trending_up</mat-icon>
+          Einnahmen
+        </h2>
+
+        <div class="t-body debit">
+          <app-position-table [positions]="debit" [contextRange]="contextRange" [perParticipant]="perParticipant"
+                              (changed)="compute()"></app-position-table>
+        </div>
+        <div class="t-body credit">
+          <app-position-table [positions]="credit" [contextRange]="contextRange" [perParticipant]="perParticipant"
+                              (changed)="compute()"></app-position-table>
+        </div>
+
+        <div class="t-total debit">
+          <span>Summe Ausgaben</span>
+          <span class="t-total-value">{{ debitTotal | currencyRange }}</span>
+        </div>
+        <div class="t-total credit">
+          <span>Summe Einnahmen</span>
+          <span class="t-total-value">{{ creditTotal | currencyRange }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="chart">
+    <mat-card-header>
+      <mat-card-title>{{ graph.title }}</mat-card-title>
+      <mat-card-subtitle>{{ graph.subtitle }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <plotly-plot class="plot" [data]="graph.data" [layout]="graph.layout" [revision]="graph.revision"
+                   [useResizeHandler]="true" [style]="{width: '100%', height: '640px'}"></plotly-plot>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,0 +1,16 @@
+.top-app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  gap: 16px;
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+}
+
+.title {
+  font: var(--mat-sys-title-large);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
