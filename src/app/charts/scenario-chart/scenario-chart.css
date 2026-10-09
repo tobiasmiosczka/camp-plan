@@ -1,0 +1,33 @@
+:host {
+  display: block;
+}
+
+mat-card-content {
+  padding-top: 16px;
+}
+
+.dimensions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dimensions mat-form-field {
+  width: 240px;
+}
+
+.plot {
+  display: block;
+  margin-top: 16px;
+  height: 640px;
+}
+
+@media (max-width: 599px) {
+  .plot {
+    height: 420px;
+  }
+
+  .dimensions mat-form-field {
+    width: 100%;
+  }
+}

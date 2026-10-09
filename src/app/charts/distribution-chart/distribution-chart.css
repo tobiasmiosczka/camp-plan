@@ -1,0 +1,19 @@
+:host {
+  display: block;
+}
+
+mat-card-content {
+  padding-top: 16px;
+}
+
+.plot {
+  display: block;
+  margin-top: 16px;
+  height: 420px;
+}
+
+@media (max-width: 599px) {
+  .plot {
+    height: 320px;
+  }
+}
