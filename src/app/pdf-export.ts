@@ -14,6 +14,15 @@ export interface ReportCity {
   participants: Range;
 }
 
+export interface ReportChart {
+  title: string;
+  subtitle: string;
+  /** JPEG als Data-URL */
+  image: string;
+  /** Höhe im Verhältnis zur Breite */
+  aspect: number;
+}
+
 /** Alles, was die PDF zeigt – zusammengestellt vom Konto, das die Szenarien bereits durchgerechnet hat. */
 export interface Report {
   perParticipant: boolean;
@@ -22,19 +31,23 @@ export interface Report {
   participants: Range;
   cities: ReportCity[];
   scenarioCount: number;
+  /** Anteil der Szenarien mit Defizit, 0 bis 1. */
+  deficitShare: number;
   debit: ReportPosition[];
   credit: ReportPosition[];
   debitTotal: ValueRange;
   creditTotal: ValueRange;
   balance: ValueRange;
-  chart: { title: string; subtitle: string; image: string } | null;
+  chart: ReportChart | null;
+  distribution: ReportChart | null;
 }
 
 /** Sparschwein „savings“ aus Material Symbols (wie Favicon und App-Leiste), viewBox 0 -960 960 960. */
 const PIGGY_BANK_PATH = 'M668.5-531.5Q680-543 680-560t-11.5-28.5Q657-600 640-600t-28.5 11.5Q600-577 600-560t11.5 28.5Q623-520 640-520t28.5-11.5ZM320-620h200v-60H320v60ZM180-120q-34-114-67-227.5T80-580q0-92 64-156t156-64h200q29-38 70.5-59t89.5-21q25 0 42.5 17.5T720-820q0 6-1.5 12t-3.5 11q-4 11-7.5 22.5T702-751l91 91h87v279l-113 37-67 224H480v-80h-80v80H180Zm45-60h115v-80h200v80h115l63-210 102-35v-175h-52L640-728q1-25 6.5-48.5T658-824q-38 10-72 29.5T534-740H300q-66.29 0-113.14 46.86Q140-646.29 140-580q0 103.16 29 201.58Q198-280 225-180Zm255-322Z';
 
-/** Primary-Farbe des hellen Themes – die PDF ist immer hell. */
+/** Farben des hellen Themes – die PDF ist immer hell. */
 const PRIMARY: [number, number, number] = [0, 106, 106];
+const ERROR: [number, number, number] = [180, 30, 30];
 
 /** jsPDF bettet kein SVG ein; deshalb wird der Pfad über eine Canvas zu einem PNG. */
 function piggyBankImage(size: number = 160): string {
@@ -95,31 +108,52 @@ export class PdfExport {
       doc.setFont('helvetica', 'bold').setFontSize(13).text(text, margin, y + 5);
       y += 8;
     };
-    /** `right`: Spalten mit Zahlen, rechtsbündig in Kopf, Inhalt und Fuß. */
-    const table = (options: Parameters<typeof autoTable>[1], right: number[] = []): void => {
-      autoTable(doc, {
-        didParseCell: (data): void => {
-          if (right.includes(data.column.index)) {
-            data.cell.styles.halign = 'right';
-          }
-        },
-        startY: y,
-        margin: {left: margin, right: margin},
-        styles: {font: 'helvetica', fontSize: 9, cellPadding: 1.5},
-        headStyles: {fillColor: PRIMARY},
-        footStyles: {fillColor: [230, 236, 236], textColor: 20, fontStyle: 'bold'},
-        ...options,
-      });
-      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    type Options = Parameters<typeof autoTable>[1];
+    type Cell = Parameters<NonNullable<Options['didParseCell']>>[0];
+    /** Alle Tabellen im selben Format. `right`: Spalten mit Zahlen, rechtsbündig in Kopf, Inhalt und Fuß. */
+    const format = (options: Options, right: number[], style?: (data: Cell) => void, startY: number = y): Options => ({
+      didParseCell: (data: Cell): void => {
+        if (right.includes(data.column.index)) {
+          data.cell.styles.halign = 'right';
+        }
+        style?.(data);
+      },
+      startY,
+      margin: {left: margin, right: margin, top: margin, bottom: margin},
+      styles: {font: 'helvetica', fontSize: 9, cellPadding: 1.5},
+      headStyles: {fillColor: PRIMARY},
+      footStyles: {fillColor: [230, 236, 236], textColor: 20, fontStyle: 'bold'},
+      // Summenzeile nur am Ende, sonst wirkt sie auf jeder Seite wie eine Zwischensumme; der Kopf wiederholt sich
+      showFoot: 'lastPage',
+      ...options,
+    });
+    const finalY = (target: unknown): number => (target as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+    const table = (options: Options, right: number[] = [], style?: (data: Cell) => void): void => {
+      autoTable(doc, format(options, right, style));
+      y = finalY(doc) + 8;
     };
+    /** Höhe einer Tabelle, gemessen in einem unsichtbaren Probedokument mit derselben Seitengröße. */
+    const measure = (options: Options, right: number[]): number => {
+      const probe = new jsPDF({unit: 'mm', format: 'a4'});
+      autoTable(probe, format(options, right, undefined, margin));
+      return probe.getNumberOfPages() > 1 ? Infinity : finalY(probe) - margin;
+    };
+    /** Ausgaben und Einnahmen möglichst je auf einer Seite: passt die Tabelle nicht mehr, vorher umbrechen. */
     const positions = (title: string, rows: ReportPosition[], total: ValueRange): void => {
-      heading(title);
-      table({
+      const options: Options = {
         head: [['Position', 'Betrag', 'Multipliziert mit', `Summe${per}`]],
         body: rows.map((row: ReportPosition): string[] =>
           [row.title, formatEuro(row.amount), row.factors || '–', formatEuroRange(row.sum)]),
         foot: [[`Summe ${title}`, '', '', formatEuroRange(total)]],
-      }, [1, 3]);
+      };
+      const needed: number = 8 + measure(options, [1, 3]);
+      // Länger als eine ganze Seite: dann hilft kein Umbruch, die Tabelle läuft wie gewohnt weiter
+      if (y + needed > doc.internal.pageSize.getHeight() - margin && Number.isFinite(needed)) {
+        doc.addPage();
+        y = margin;
+      }
+      heading(title);
+      table(options, [1, 3]);
     };
 
     const icon: number = 8;
@@ -128,23 +162,44 @@ export class PdfExport {
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100)
       .text(`Stand: ${new Date().toLocaleString('de', {dateStyle: 'long', timeStyle: 'short'})}`, margin, y + 12)
       .setTextColor(0);
-    y += 20;
+    y += 18;
+
+    // Kurzfassung ganz oben; der Überschuss als erste, hervorgehobene Zeile
+    const negative: boolean = report.balance.min < 0;
+    const share: string = report.deficitShare.toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
+    heading('Übersicht');
+    table({
+      head: [['Kennzahl', 'Wert']],
+      body: [
+        [`Überschuss${per || ' gesamt'}`, formatEuroRange(report.balance)],
+        [`Einnahmen${per}`, formatEuroRange(report.creditTotal)],
+        [`Ausgaben${per}`, formatEuroRange(report.debitTotal)],
+        ['Szenarien', report.scenarioCount.toLocaleString('de')],
+        ['Szenarien mit Defizit', share],
+      ],
+      columnStyles: {0: {cellWidth: 90}},
+    }, [1], (data: Cell): void => {
+      if (data.section === 'body' && data.row.index === 0) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fontSize = 11;
+        data.cell.styles.textColor = negative ? ERROR : PRIMARY;
+      }
+      if (data.section === 'body' && data.row.index === 4 && negative) {
+        data.cell.styles.textColor = ERROR;
+      }
+    });
 
     heading('Rahmenbedingungen');
     table({
-      body: [
-        ['Tage', formatRange(report.days)],
-        ['Leiter', formatRange(report.leaders)],
-        ['Teilnehmer gesamt', formatRange(report.participants)],
-        ['Durchgerechnete Szenarien', report.scenarioCount.toLocaleString('de')],
-      ],
-      theme: 'plain',
-      columnStyles: {0: {fontStyle: 'bold', cellWidth: 60}},
-    });
+      head: [['Rahmenbedingung', 'von', 'bis']],
+      body: [report.days, report.leaders, report.participants].map((range: Range, i: number): string[] =>
+        [['Tage', 'Leiter', 'Teilnehmer gesamt'][i], `${range.start}`, `${range.end}`]),
+      columnStyles: {0: {cellWidth: 90}},
+    }, [1, 2]);
 
     heading('Teilnehmende Städte');
     table({
-      head: [['Stadt', 'Teilnehmer von', 'bis']],
+      head: [['Stadt', 'Teilnehmer von', 'Teilnehmer bis']],
       body: report.cities.map((city: ReportCity): string[] =>
         [city.name, `${city.participants.start}`, `${city.participants.end}`]),
       columnStyles: {0: {cellWidth: 90}},
@@ -153,31 +208,26 @@ export class PdfExport {
     positions('Ausgaben', report.debit, report.debitTotal);
     positions('Einnahmen', report.credit, report.creditTotal);
 
-    heading(`Überschuss${per}`);
-    const balanceColor: [number, number, number] = report.balance.min < 0 ? [180, 30, 30] : PRIMARY;
-    doc.setFont('helvetica', 'bold').setFontSize(16)
-      .setTextColor(...balanceColor)
-      .text(formatEuroRange(report.balance), margin, y + 5)
-      .setTextColor(0);
-    y += 9;
-    if (report.balance.min < 0) {
-      doc.setFont('helvetica', 'normal').setFontSize(9).text('In mindestens einem Szenario entsteht ein Defizit.', margin, y + 3);
-      y += 6;
-    }
-    y += 4;
 
-    if (report.chart) {
-      const height: number = width * 0.6;
+    const chart = (content: ReportChart): void => {
+      const height: number = width * content.aspect;
       if (y + height + 14 > doc.internal.pageSize.getHeight() - margin) {
         doc.addPage();
         y = margin;
       }
-      heading(report.chart.title);
+      heading(content.title);
       doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100)
-        .text(doc.splitTextToSize(report.chart.subtitle, width), margin, y + 1)
+        .text(doc.splitTextToSize(content.subtitle, width), margin, y + 1)
         .setTextColor(0);
       y += 6;
-      doc.addImage(report.chart.image, 'JPEG', margin, y, width, height);
+      doc.addImage(content.image, 'JPEG', margin, y, width, height);
+      y += height + 8;
+    };
+    if (report.chart) {
+      chart(report.chart);
+    }
+    if (report.distribution) {
+      chart(report.distribution);
     }
 
     const pages: number = doc.getNumberOfPages();

@@ -29,7 +29,11 @@ describe('Calculator', () => {
       const sum = (positions: Position[], i: number): number => positions.reduce((total, position) =>
         total + position.getSum(contexts[i]) / (perParticipant ? contexts[i].get(ContextType.PARTICIPANTS) : 1), 0);
 
-      contexts.forEach((_, i) => expect(result.values[i]).toBeCloseTo(sum(credit, i) - sum(debit, i), 9));
+      contexts.forEach((_, i) => {
+        expect(result.values[i]).toBeCloseTo(sum(credit, i) - sum(debit, i), 9);
+        expect(result.debitValues[i]).toBeCloseTo(sum(debit, i), 9);
+        expect(result.creditValues[i]).toBeCloseTo(sum(credit, i), 9);
+      });
       for (const position of [...debit, ...credit]) {
         const sums = contexts.map(context =>
           position.getSum(context) / (perParticipant ? context.get(ContextType.PARTICIPANTS) : 1));

@@ -151,4 +151,22 @@
                    [useResizeHandler]="true" [style]="{width: '100%', height: '100%'}"></plotly-plot>
     </mat-card-content>
   </mat-card>
+
+  <mat-card appearance="outlined" class="distribution">
+    <mat-card-header>
+      <mat-card-title>Verteilung der Szenarien</mat-card-title>
+      <mat-card-subtitle>{{ distribution.subtitle }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-button-toggle-group [value]="distributionMetric" (change)="setDistributionMetric($event.value)"
+                               aria-label="Dargestellte Größe">
+        <mat-button-toggle value="balance">Überschuss</mat-button-toggle>
+        <mat-button-toggle value="debit">Ausgaben</mat-button-toggle>
+        <mat-button-toggle value="credit">Einnahmen</mat-button-toggle>
+      </mat-button-toggle-group>
+      <plotly-plot class="plot distribution-plot" [data]="distribution.data" [layout]="distribution.layout"
+                   [revision]="distribution.revision" [useResizeHandler]="true"
+                   [style]="{width: '100%', height: '100%'}"></plotly-plot>
+    </mat-card-content>
+  </mat-card>
 </div>

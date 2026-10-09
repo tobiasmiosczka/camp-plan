@@ -6,7 +6,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {FormsModule} from '@angular/forms';
 import {City, Context, ContextRange, ContextType, PerCityModifier, Position, Range} from '../calculation/position';
-import {Dimension, groupKey, sameDimension, ScenarioCache, ScenarioResults} from '../calculation/scenarios';
+import {Dimension, groupKey, Histogram, histogram, sameDimension, ScenarioCache, ScenarioResults} from '../calculation/scenarios';
 import {Calculation, Calculator} from '../calculation/calculator';
 import {PlanStore} from '../plan-store';
 import {ThemeStore} from '../theme-store';
@@ -14,6 +14,7 @@ import {MatCardModule} from '@angular/material/card';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatSelectModule} from '@angular/material/select';
+import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {PositionTableComponent} from '../position-table/position-table';
@@ -50,6 +51,7 @@ interface ContextRow {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    MatButtonToggleModule,
     MatTooltipModule,
     FormsModule,
     PositionTableComponent,
@@ -91,6 +93,18 @@ export class AccountPanel {
   protected contextRange: ContextRange = this.store.plan().contextRange;
   protected debit: Position[] = this.store.plan().debit;
   protected credit: Position[] = this.store.plan().credit;
+
+  /** Welche Größe die Verteilung zeigt: Überschuss, Ausgaben (Kosten) oder Einnahmen. */
+  protected distributionMetric: 'balance' | 'debit' | 'credit' = 'balance';
+  protected distribution: { data: Data[], layout: Partial<Layout>, revision: number, subtitle: string } = {
+    data: [],
+    layout: {},
+    revision: 0,
+    subtitle: ''
+  };
+  private calculation!: Calculation;
+  /** Während des PDF-Exports: Farben aus dem hellen Theme statt aus dem aktuellen Modus. */
+  private printing: boolean = false;
 
   protected graph: { data: Data[], layout: Partial<Layout>, revision: number, title: string, subtitle: string } = {
     data: [],
@@ -138,6 +152,20 @@ export class AccountPanel {
   }
 
   private async report(): Promise<Report> {
+    // Diagramme für Papier mit hellen Theme-Farben aufbauen; synchron, damit die Ansicht nie umschaltet
+    this.printing = true;
+    let chart: { data: Data[], layout: Partial<Layout> };
+    let distribution: { data: Data[], layout: Partial<Layout> };
+    try {
+      this.buildGraph();
+      chart = {data: this.graph.data, layout: this.printLayout(this.graph.layout)};
+      this.buildDistribution();
+      distribution = {data: this.distribution.data, layout: this.printLayout(this.distribution.layout)};
+    } finally {
+      this.printing = false;
+      this.buildGraph();
+      this.buildDistribution();
+    }
     const position = (p: Position): ReportPosition => ({
       title: p.getTitle(),
       amount: p.getAmount(),
@@ -151,6 +179,7 @@ export class AccountPanel {
       participants: this.scenarioCount > 0 ? this.contextRange.get(ContextType.PARTICIPANTS) : {start: 0, end: 0, step: 1},
       cities: this.contextRange.getCities().map((city: City) => ({name: city.getName(), participants: city.getParticipants()})),
       scenarioCount: this.scenarioCount,
+      deficitShare: this.deficitShare(),
       debit: this.debit.map(position),
       credit: this.credit.map(position),
       debitTotal: this.debitTotal,
@@ -159,16 +188,22 @@ export class AccountPanel {
       chart: this.graph.data.length === 0 ? null : {
         title: this.graph.title,
         subtitle: this.graph.subtitle,
-        image: await PlotlyJS.toImage({data: this.graph.data, layout: this.printLayout()}, {format: 'jpeg', width: 1200, height: 720}),
+        image: await PlotlyJS.toImage(chart, {format: 'jpeg', width: 1200, height: 720}),
+        aspect: 0.6,
+      },
+      distribution: this.distribution.data.length === 0 ? null : {
+        title: `Verteilung der Szenarien: ${this.distribution.layout.xaxis?.title?.text ?? ''}`,
+        subtitle: this.distribution.subtitle,
+        image: await PlotlyJS.toImage(distribution, {format: 'jpeg', width: 1200, height: 540}),
+        aspect: 0.45,
       },
     };
   }
 
   /** Das Diagramm für Papier: immer helle Farben, unabhängig vom gewählten Farbmodus. */
-  private printLayout(): Partial<Layout> {
+  private printLayout(layout: Partial<Layout>): Partial<Layout> {
     // Ohne Typangabe passt das Objekt sowohl zu 2D- als auch zu 3D-Achsen
     const axis = {gridcolor: '#dde3e3', linecolor: '#6f7979', color: '#191c1c'};
-    const layout: Partial<Layout> = this.graph.layout;
     return {
       ...layout,
       font: {...layout.font, color: '#191c1c'},
@@ -245,7 +280,6 @@ export class AccountPanel {
   protected compute(): void {
     const relevant: City[] = this.referencedCities();
     const permutations: Context[] = this.scenarioCache.getContexts(this.contextRange, relevant);
-    this.scenarioCount = permutations.length;
     const calculation: Calculation = this.calculator.calculate(permutations, this.contextRange, this.debit, this.credit,
       this.perParticipant);
     this.balance = calculation.balance;
@@ -256,8 +290,12 @@ export class AccountPanel {
     if (this.results?.values !== calculation.values) {
       this.results = new ScenarioResults(permutations, calculation.values, this.contextRange, relevant);
     }
+    this.calculation = calculation;
+    // Zusammengefasste Städte zählen mit ihrem Gewicht: so viele Szenarien wie bei vollständiger Aufzählung
+    this.scenarioCount = this.results.scenarioCount;
     this.updateDimensions();
     this.renderGraph();
+    this.renderDistribution();
     this.store.autosave();
   }
 
@@ -300,6 +338,85 @@ export class AccountPanel {
 
   private dimensionLabel(dimension: Dimension): string {
     return this.dimensionOptions.find((option: DimensionOption): boolean => sameDimension(option.dimension, dimension))?.label ?? '';
+  }
+
+  protected setDistributionMetric(metric: 'balance' | 'debit' | 'credit'): void {
+    this.distributionMetric = metric;
+    this.renderDistribution();
+  }
+
+  /** Histogramm über alle Szenarien; nutzt die gespeicherten Ergebnisse, ohne neu zu rechnen. */
+  private renderDistribution(): void {
+    this.buildDistribution();
+    this.distribution.revision++;
+  }
+
+  private buildDistribution(): void {
+    const per: string = this.perParticipant ? ' pro Teilnehmer' : '';
+    const label: string = {balance: 'Überschuss', debit: 'Ausgaben', credit: 'Einnahmen'}[this.distributionMetric] + per;
+    if (this.results.isEmpty()) {
+      this.distribution.subtitle = 'Keine Szenarien: Trage bei den Städten Teilnehmer ein.';
+      this.distribution.data = [];
+      this.distribution.layout = this.baseLayout();
+      return;
+    }
+    const values: ArrayLike<number> = this.distributionMetric === 'balance' ? this.calculation.values
+      : this.distributionMetric === 'debit' ? this.calculation.debitValues : this.calculation.creditValues;
+    const weights: Float64Array = this.results.weights;
+    const total: number = this.results.scenarioCount;
+    let weightedSum: number = 0;
+    let deficit: number = 0;
+    for (let i = 0; i < values.length; i++) {
+      weightedSum += values[i] * weights[i];
+      deficit += values[i] < 0 ? weights[i] : 0;
+    }
+    const mean: number = weightedSum / total;
+    const result: Histogram = histogram(values, weights);
+    const lower = (i: number): number => result.start + i * result.width;
+
+    const primary: string = this.themeColor('--mat-sys-primary');
+    const error: string = this.themeColor('--mat-sys-error');
+    const percent = (count: number): string =>
+      (count / total).toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
+    const facts: string[] = [`${total.toLocaleString('de')} Szenarien`, `Mittelwert ${this.formatEuro(mean)}`];
+    if (this.distributionMetric === 'balance') {
+      facts.push(`Defizit in ${percent(deficit)} der Szenarien`);
+    }
+    this.distribution.subtitle = facts.join(' · ');
+    this.distribution.data = [{
+      name: label,
+      type: 'bar',
+      x: result.counts.map((_: number, i: number): number => lower(i) + result.width / 2),
+      y: result.counts,
+      width: result.counts.map((): number => result.width),
+      marker: {
+        color: result.counts.map((_: number, i: number): string =>
+          this.distributionMetric === 'balance' && lower(i) < 0 ? error : primary),
+      },
+      customdata: result.counts.map((count: number, i: number): string[] =>
+        [this.formatEuro(lower(i)), this.formatEuro(lower(i + 1)), percent(count)]),
+      hovertemplate: '%{customdata[0]} bis %{customdata[1]}<br>%{y:,.0f} Szenarien (%{customdata[2]})<extra></extra>',
+    }];
+    const line = (x: number, color: string, dash: 'dash' | 'dot') => ({
+      type: 'line' as const, yref: 'paper' as const, x0: x, x1: x, y0: 0, y1: 1, line: {color, width: 1.5, dash},
+    });
+    this.distribution.layout = {
+      ...this.baseLayout(),
+      margin: {l: 72, r: 24, t: 24, b: 56},
+      bargap: 0.05,
+      showlegend: false,
+      xaxis: {...this.axisStyle(), title: {text: label}, ticksuffix: ' €', tickformat: ',.0f'},
+      yaxis: {...this.axisStyle(), title: {text: 'Anzahl Szenarien'}, tickformat: ',.0f', rangemode: 'tozero'},
+      // Gestrichelt der Mittelwert, gepunktet die 0-€-Grenze beim Überschuss
+      shapes: [
+        line(mean, this.themeColor('--mat-sys-on-surface-variant'), 'dash'),
+        ...(this.distributionMetric === 'balance' ? [line(0, error, 'dot')] : []),
+      ],
+      annotations: [{
+        x: mean, y: 1, yref: 'paper', yanchor: 'bottom', showarrow: false,
+        text: `Mittelwert ${this.formatEuro(mean)}`, font: {size: 11},
+      }],
+    };
   }
 
   private renderGraph(): void {
@@ -407,6 +524,16 @@ export class AccountPanel {
     };
   }
 
+  /** Anteil der Szenarien mit Defizit; zusammengefasste Szenarien zählen mit ihrem Gewicht. */
+  private deficitShare(): number {
+    const weights: Float64Array = this.results.weights;
+    let deficit: number = 0;
+    this.calculation.values.forEach((value: number, i: number): void => {
+      deficit += value < 0 ? weights[i] : 0;
+    });
+    return this.results.scenarioCount > 0 ? deficit / this.results.scenarioCount : 0;
+  }
+
   /**
    * Farbverlauf aus dem Theme statt einer fremden Skala: Überschüsse von Secondary-Container bis Primary,
    * Defizite von Error-Container bis Error. Der harte Wechsel bei 0 € macht die Grenze sichtbar.
@@ -506,7 +633,7 @@ export class AccountPanel {
       separators: ',.',
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      font: {family: 'Roboto, sans-serif', color: getComputedStyle(document.body).color},
+      font: {family: 'Roboto, sans-serif', color: this.themeColor('--mat-sys-on-surface')},
       hoverlabel: {
         bgcolor: this.themeColor('--mat-sys-surface-container-highest'),
         bordercolor: this.themeColor('--mat-sys-outline-variant'),
@@ -568,6 +695,10 @@ export class AccountPanel {
   private themeColor(variable: string): string {
     const probe: HTMLSpanElement = document.createElement('span');
     probe.style.color = `var(${variable})`;
+    if (this.printing) {
+      // light-dark() wertet das Farbschema des Elements aus: so entstehen die hellen Farben auch im Dunkelmodus
+      probe.style.colorScheme = 'light';
+    }
     document.body.appendChild(probe);
     const color: string = getComputedStyle(probe).color;
     probe.remove();

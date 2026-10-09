@@ -4,6 +4,9 @@ import {Context, ContextRange, ContextType, PerCityModifier, Position, PositionM
 export interface Calculation {
   /** Überschuss je Szenario, in derselben Reihenfolge wie die Szenarien. */
   values: number[];
+  /** Ausgaben und Einnahmen je Szenario, für die Verteilung. */
+  debitValues: Float64Array;
+  creditValues: Float64Array;
   positionSums: Map<Position, ValueRange>;
   debitTotal: ValueRange;
   creditTotal: ValueRange;
@@ -85,6 +88,8 @@ export class Calculator {
     }
 
     const values: number[] = new Array<number>(contexts.length);
+    const debitValues = new Float64Array(contexts.length);
+    const creditValues = new Float64Array(contexts.length);
     const debitTotal: ValueRange = {min: Infinity, max: -Infinity};
     const creditTotal: ValueRange = {min: Infinity, max: -Infinity};
     const balance: ValueRange = {min: Infinity, max: -Infinity};
@@ -112,11 +117,15 @@ export class Calculator {
       extend(creditTotal, creditSum);
       extend(balance, creditSum - debitSum);
       values[c] = creditSum - debitSum;
+      debitValues[c] = debitSum;
+      creditValues[c] = creditSum;
     }
 
     const orEmpty = (range: ValueRange): ValueRange => contexts.length > 0 ? range : {min: 0, max: 0};
     return {
       values,
+      debitValues,
+      creditValues,
       positionSums: new Map<Position, ValueRange>(positions.map((position: Position, i: number): [Position, ValueRange] =>
         [position, orEmpty({min: mins[i], max: maxs[i]})])),
       debitTotal: orEmpty(debitTotal),

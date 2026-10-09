@@ -69,6 +69,10 @@ export class ScenarioResults {
   private readonly days: Range;
   /** Teilnehmer je Szenario, die auf zusammengefasste Städte entfallen. */
   private readonly rest: Int32Array;
+  /** Wie viele echte Szenarien jedes zusammengefasste Szenario vertritt. */
+  readonly weights: Float64Array;
+  /** Anzahl aller echten Szenarien, als hätte man jede Stadt einzeln aufgezählt. */
+  readonly scenarioCount: number;
 
   constructor(readonly contexts: Context[], readonly values: number[], contextRange: ContextRange,
               private readonly relevant: City[]) {
@@ -80,6 +84,34 @@ export class ScenarioResults {
     this.days = {...contextRange.get(ContextType.DAYS)};
     this.rest = Int32Array.from(contexts, (context: Context): number => relevant.reduce(
       (rest: number, city: City): number => rest - context.getParticipantsFrom(city), context.get(ContextType.PARTICIPANTS)));
+
+    const [restStart, ways] = this.distributions();
+    this.weights = Float64Array.from(this.rest, (rest: number): number => ways[rest - restStart] ?? 0);
+    this.scenarioCount = this.weights.reduce((sum: number, weight: number): number => sum + weight, 0);
+  }
+
+  /**
+   * Auf wie viele Arten sich r Teilnehmer auf die zusammengefassten Städte verteilen lassen, für jedes mögliche r
+   * (Faltung der Spannen, beginnend bei der Summe der Mindestwerte).
+   */
+  private distributions(): [number, number[]] {
+    let start: number = 0;
+    let ways: number[] = [1];
+    this.ranges.forEach((participants: Range, city: City): void => {
+      if (this.relevant.includes(city)) {
+        return;
+      }
+      const span: number = participants.end - participants.start;
+      const next: number[] = new Array<number>(ways.length + span).fill(0);
+      ways.forEach((count: number, i: number): void => {
+        for (let k = 0; k <= span; k++) {
+          next[i + k] += count;
+        }
+      });
+      start += participants.start;
+      ways = next;
+    });
+    return [start, ways];
   }
 
   public isEmpty(): boolean {
@@ -159,4 +191,38 @@ export class ScenarioResults {
   private valueOf(context: Context, dimension: Dimension): number {
     return dimension.kind === 'city' ? context.getParticipantsFrom(dimension.city) : context.get(dimension.type);
   }
+}
+
+export interface Histogram {
+  /** Untergrenze der ersten Klasse; Klasse i umfasst [start + i·width, start + (i+1)·width). */
+  start: number;
+  width: number;
+  counts: number[];
+}
+
+/**
+ * Teilt gewichtete Werte in etwa `bins` Klassen mit runder Breite (1, 2, 2,5 oder 5 mal einer Zehnerpotenz).
+ * Die Klassengrenzen liegen auf Vielfachen der Breite, also auch genau auf 0 €.
+ */
+export function histogram(values: ArrayLike<number>, weights: ArrayLike<number>, bins: number = 40): Histogram {
+  let min: number = Infinity;
+  let max: number = -Infinity;
+  for (let i = 0; i < values.length; i++) {
+    min = Math.min(min, values[i]);
+    max = Math.max(max, values[i]);
+  }
+  if (values.length === 0) {
+    return {start: 0, width: 1, counts: []};
+  }
+  const raw: number = (max - min) / bins;
+  const power: number = raw > 0 ? 10 ** Math.floor(Math.log10(raw)) : 1;
+  const width: number = raw > 0
+    ? [1, 2, 2.5, 5, 10].map((factor: number): number => factor * power).find((step: number): boolean => step >= raw)!
+    : Math.max(power, 0.01);
+  const start: number = Math.floor(min / width) * width;
+  const counts: number[] = new Array<number>(Math.floor((max - start) / width) + 1).fill(0);
+  for (let i = 0; i < values.length; i++) {
+    counts[Math.min(counts.length - 1, Math.floor((values[i] - start) / width))] += weights[i];
+  }
+  return {start, width, counts};
 }

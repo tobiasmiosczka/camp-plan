@@ -29,7 +29,8 @@
 
   .cities,
   .t-account-card,
-  .chart {
+  .chart,
+  .distribution {
     grid-column: 1 / -1;
   }
 }
@@ -208,9 +209,17 @@ mat-card-content {
   height: 640px;
 }
 
+.plot.distribution-plot {
+  height: 420px;
+}
+
 @media (max-width: 599px) {
   .plot {
     height: 420px;
+  }
+
+  .plot.distribution-plot {
+    height: 320px;
   }
 
   .dimensions mat-form-field {
