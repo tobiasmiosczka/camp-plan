@@ -1,14 +1,55 @@
+:host {
+  display: block;
+}
+
+/* M3 Top App Bar: Fläche wie der Hintergrund, nach dem Scrollen abgehoben */
 .top-app-bar {
   position: sticky;
   top: 0;
   z-index: 2;
-  gap: 16px;
+  gap: 8px;
+  padding: 0 4px 0 16px;
   background: var(--mat-sys-surface-container);
   color: var(--mat-sys-on-surface);
 }
 
+.top-app-bar > mat-icon {
+  color: var(--mat-sys-primary);
+}
+
+.per-participant {
+  margin-right: 8px;
+}
+
+.compact-only {
+  display: none;
+}
+
+/* Kompakte Fensterklasse (< 600 dp) */
+@media (max-width: 599px) {
+  .wide-only {
+    display: none;
+  }
+
+  .compact-only {
+    display: block;
+  }
+}
+
 .title {
   font: var(--mat-sys-title-large);
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Der Schalter zeigt nur den Zustand; umgeschaltet wird über den ganzen Menüeintrag */
+.menu-toggle mat-slide-toggle {
+  pointer-events: none;
 }
 
 .spacer {

@@ -20,7 +20,7 @@
 }
 
 .dense.amount {
-  width: 96px;
+  width: 112px;
 }
 
 .group-size {
@@ -32,6 +32,20 @@
   border: none;
   border-bottom: 1px solid currentColor;
   text-align: center;
+}
+
+.chip-select {
+  margin: 0 4px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.chip-select option {
+  color: var(--mat-sys-on-surface);
+  background: var(--mat-sys-surface-container);
 }
 
 :host {
@@ -79,4 +93,59 @@ td.sum {
 
 .dense.amount input {
   text-align: right;
+}
+
+.compact-label {
+  display: none;
+}
+
+/* Kompakte und mittlere Fensterklasse: jede Position als Listeneintrag statt als breite Tabellenzeile */
+@media (max-width: 839px) {
+  table,
+  tbody {
+    display: block;
+  }
+
+  tr.mat-mdc-header-row {
+    display: none;
+  }
+
+  tr.mat-mdc-row {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+    /* Eigene Spalte für Löschen, damit die breite Summe darunter den Namen nicht schmaler macht */
+    grid-template-columns: auto minmax(0, 1fr) 48px;
+    grid-template-areas:
+      "name name actions"
+      "amount sum sum"
+      "modifiers modifiers modifiers";
+    align-items: center;
+    gap: 4px 8px;
+    height: auto;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  td.mat-mdc-cell {
+    display: block;
+    padding: 0 !important;
+    border: none;
+  }
+
+  .mat-column-position-name { grid-area: name; }
+  .mat-column-position-amount { grid-area: amount; text-align: left; }
+  .mat-column-position-modifiers { grid-area: modifiers; }
+  .mat-column-position-sum { grid-area: sum; }
+  .mat-column-position-actions { grid-area: actions; }
+
+  .dense.name {
+    width: 100%;
+  }
+
+  .compact-label {
+    display: block;
+    font: var(--mat-sys-label-small);
+    color: var(--mat-sys-on-surface-variant);
+  }
 }

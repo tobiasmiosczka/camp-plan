@@ -40,9 +40,49 @@
           In mindestens einem Szenario entsteht ein Defizit.
         </div>
       }
-      <mat-slide-toggle class="per-participant" [(ngModel)]="perParticipant" (change)="compute()">
-        Beträge pro Teilnehmer
-      </mat-slide-toggle>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="cities">
+    <mat-card-header>
+      <mat-card-title>Teilnehmende Städte</mat-card-title>
+      <mat-card-subtitle>
+        {{ participantsLabel() }} Teilnehmer insgesamt · {{ scenarioCount.toLocaleString('de') }} Szenarien
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="city-list">
+        @for (city of contextRange.getCities(); track city) {
+          <div class="city">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-name">
+              <mat-label>Stadt</mat-label>
+              <input matInput [readonly]="city.isOthers()" [ngModel]="city.getName()"
+                     (ngModelChange)="setCityName(city, $event)"/>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
+              <mat-label>von</mat-label>
+              <input matInput type="number" min="0" step="1"
+                     [ngModel]="city.getParticipants().start"
+                     (ngModelChange)="setCityRange(city, 'start', $event)"/>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
+              <mat-label>bis</mat-label>
+              <input matInput type="number" [min]="city.getParticipants().start" step="1"
+                     [ngModel]="city.getParticipants().end"
+                     (ngModelChange)="setCityRange(city, 'end', $event)"/>
+            </mat-form-field>
+            @if (!city.isOthers()) {
+              <button mat-icon-button (click)="removeCity(city)" aria-label="Stadt löschen" matTooltip="Stadt löschen">
+                <mat-icon>delete</mat-icon>
+              </button>
+            }
+          </div>
+        }
+      </div>
+      <button mat-button (click)="addCity()">
+        <mat-icon>add</mat-icon>
+        Stadt hinzufügen
+      </button>
     </mat-card-content>
   </mat-card>
 
@@ -59,12 +99,12 @@
         </h2>
 
         <div class="t-body debit">
-          <app-position-table [positions]="debit" [contextRange]="contextRange" [perParticipant]="perParticipant"
-                              (changed)="compute()"></app-position-table>
+          <app-position-table [positions]="debit" [sums]="positionSums" [cities]="contextRange.getCities()"
+                              [perParticipant]="perParticipant" (changed)="compute()"></app-position-table>
         </div>
         <div class="t-body credit">
-          <app-position-table [positions]="credit" [contextRange]="contextRange" [perParticipant]="perParticipant"
-                              (changed)="compute()"></app-position-table>
+          <app-position-table [positions]="credit" [sums]="positionSums" [cities]="contextRange.getCities()"
+                              [perParticipant]="perParticipant" (changed)="compute()"></app-position-table>
         </div>
 
         <div class="t-total debit">
@@ -85,8 +125,30 @@
       <mat-card-subtitle>{{ graph.subtitle }}</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
+      <div class="dimensions">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>X-Achse</mat-label>
+          <mat-select [value]="xDimension" [compareWith]="compareDimension" (selectionChange)="setDimension('x', $event.value)">
+            @for (option of dimensionOptions; track $index) {
+              <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Y-Achse</mat-label>
+          <mat-select [value]="yDimension ?? 'none'" [compareWith]="compareDimension"
+                      (selectionChange)="setDimension('y', $event.value === 'none' ? null : $event.value)">
+            <mat-option value="none">keine</mat-option>
+            @for (option of dimensionOptions; track $index) {
+              @if (!sameDimension(option.dimension, xDimension)) {
+                <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>
+              }
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
       <plotly-plot class="plot" [data]="graph.data" [layout]="graph.layout" [revision]="graph.revision"
-                   [useResizeHandler]="true" [style]="{width: '100%', height: '640px'}"></plotly-plot>
+                   [useResizeHandler]="true" [style]="{width: '100%', height: '100%'}"></plotly-plot>
     </mat-card-content>
   </mat-card>
 </div>

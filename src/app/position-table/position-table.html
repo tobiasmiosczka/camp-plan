@@ -12,11 +12,12 @@
   </ng-container>
 
   <ng-container matColumnDef="position-amount">
-    <th mat-header-cell *matHeaderCellDef class="text-right">Betrag (€)</th>
+    <th mat-header-cell *matHeaderCellDef class="text-right">Betrag</th>
     <td mat-cell *matCellDef="let element" class="text-right">
       <mat-form-field subscriptSizing="dynamic" class="dense amount">
-        <input matInput type="number" step="0.01" class="text-right" aria-label="Betrag in Euro"
+        <input matInput appEuroInput class="text-right" aria-label="Betrag in Euro"
                [ngModel]="element.getAmount()" (ngModelChange)="setAmount(element, $event)"/>
+        <span matTextSuffix>&nbsp;€</span>
       </mat-form-field>
     </td>
   </ng-container>
@@ -27,7 +28,15 @@
       <mat-chip-set>
         @for (modifier of element.getModifiers(); track $index) {
           <mat-chip (removed)="removeModifier(element, modifier)">
-            @if (isGroup(modifier)) {
+            @if (isCity(modifier)) {
+              pro Teilnehmer aus
+              <select class="chip-select" aria-label="Stadt" (keydown)="$event.stopPropagation()"
+                      [ngModel]="modifier.getCity()" (ngModelChange)="setCity(modifier, $event)">
+                @for (city of cities; track city) {
+                  <option [ngValue]="city">{{ city.getName() }}</option>
+                }
+              </select>
+            } @else if (isGroup(modifier)) {
               pro
               <input type="number" min="1" class="group-size" aria-label="Gruppengröße" (keydown)="$event.stopPropagation()"
                      [ngModel]="modifier.getGroupSize()" (ngModelChange)="setGroupSize(modifier, $event)"/>
@@ -56,7 +65,8 @@
   <ng-container matColumnDef="position-sum">
     <th mat-header-cell *matHeaderCellDef class="text-right">{{ perParticipant ? 'pro Teilnehmer' : 'Summe' }}</th>
     <td mat-cell *matCellDef="let element" class="text-right sum">
-      {{ getSum(element, perParticipant) | currencyRange }}
+      <span class="compact-label">{{ perParticipant ? 'pro Teilnehmer' : 'Summe' }}</span>
+      {{ getSum(element) | currencyRange }}
     </td>
   </ng-container>
 

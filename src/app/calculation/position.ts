@@ -18,43 +18,144 @@ export function range(range: Range): number[] {
   return result;
 }
 
+/** Eine Stadt, aus der Teilnehmende kommen, mit geschätzter Teilnehmerzahl. */
+export class City {
+
+  public static readonly OTHERS_NAME = 'Sonstige';
+
+  private name: string;
+  private readonly participants: Range;
+  private readonly others: boolean;
+
+  public constructor(name: string, participants: Range, others: boolean = false) {
+    this.name = name;
+    this.participants = participants;
+    this.others = others;
+  }
+
+  /** Sammelposten für alle Teilnehmenden ohne eigene Stadt; gibt es in jedem Plan genau einmal. */
+  public static others(participants: Range = {start: 0, end: 0, step: 1}): City {
+    return new City(City.OTHERS_NAME, participants, true);
+  }
+
+  public isOthers(): boolean {
+    return this.others;
+  }
+
+  public getName(): string {
+    return this.name;
+  }
+
+  public setName(name: string): void {
+    if (!this.others) {
+      this.name = name;
+    }
+  }
+
+  public getParticipants(): Range {
+    return this.participants;
+  }
+}
+
 export class ContextRange {
   private readonly map: Map<ContextType, Range> = new Map<ContextType, Range>();
+  private readonly cities: City[];
 
-  public constructor(map: Map<ContextType, Range>) {
+  /**
+   * Die Teilnehmerzahl ergibt sich aus den Städten; ein Eintrag für PARTICIPANTS in der Map wird ignoriert.
+   * „Sonstige“ steht immer als letzte Stadt in der Liste und wird bei Bedarf ergänzt.
+   */
+  public constructor(map: Map<ContextType, Range>, cities: City[] = []) {
     this.map = map;
+    const others: City = cities.find((city: City): boolean => city.isOthers()) ?? City.others();
+    this.cities = [...cities.filter((city: City): boolean => city !== others), others];
   }
 
   public get(type: ContextType): Range {
+    if (type === ContextType.PARTICIPANTS) {
+      // Jede Gesamtzahl dazwischen ist erreichbar; ohne Teilnehmer wird nicht gerechnet
+      const start: number = this.cities.reduce((sum: number, city: City): number => sum + city.getParticipants().start, 0);
+      const end: number = this.cities.reduce((sum: number, city: City): number => sum + city.getParticipants().end, 0);
+      return {start: Math.max(1, start), end, step: 1};
+    }
     return this.map.get(type) || {start: 0, end: 0, step: 0};
   }
 
-  public getPermutations(): Context[] {
+  public getCities(): City[] {
+    return this.cities;
+  }
+
+  /** Fügt eine Stadt vor „Sonstige“ ein. */
+  public addCity(city: City, index: number = this.cities.length - 1): void {
+    this.cities.splice(Math.min(index, this.cities.length - 1), 0, city);
+  }
+
+  public removeCity(city: City): number {
+    const index: number = this.cities.indexOf(city);
+    if (index >= 0 && !city.isOthers()) {
+      this.cities.splice(index, 1);
+    }
+    return index;
+  }
+
+  /**
+   * Alle Kombinationen aus Teilnehmern je Stadt, Leitern und Tagen; Szenarien ohne Teilnehmer entfallen.
+   *
+   * Nur die Städte in `relevant` werden einzeln aufgezählt. Die übrigen wirken sich nur über die Gesamtzahl aus und
+   * werden zu einer Spanne zusammengefasst – das ergibt dieselben Ergebnisse mit weit weniger Szenarien.
+   */
+  public getPermutations(relevant: City[] = this.cities): Context[] {
     const result: Context[] = [];
-    for (let participants of range(this.get(ContextType.PARTICIPANTS))) {
+    for (const [cities, participants] of this.cityPermutations(relevant)) {
       for (let leaders of range(this.get(ContextType.LEADERS))) {
         for (let days of range(this.get(ContextType.DAYS))) {
-          const map = new Map<ContextType, number>();
-          map.set(ContextType.PARTICIPANTS, participants);
-          map.set(ContextType.LEADERS, leaders);
-          map.set(ContextType.DAYS, days);
-          result.push(new Context(map));
+          result.push(new Context(participants, leaders, days, cities));
         }
       }
     }
     return result;
   }
+
+  /** Teilnehmer je relevanter Stadt zusammen mit der jeweiligen Gesamtzahl. */
+  private cityPermutations(relevant: City[]): [Map<City, number>, number][] {
+    let result: [Map<City, number>, number][] = [[new Map<City, number>(), 0]];
+    const rest: Range = {start: 0, end: 0, step: 1};
+    for (const city of this.cities) {
+      const participants: Range = city.getParticipants();
+      if (!relevant.includes(city)) {
+        rest.start += participants.start;
+        rest.end += participants.end;
+        continue;
+      }
+      result = result.flatMap(([partial, total]: [Map<City, number>, number]): [Map<City, number>, number][] =>
+        range(participants).map((count: number): [Map<City, number>, number] =>
+          [new Map(partial).set(city, count), total + count]));
+    }
+    return result
+      .flatMap(([cities, total]: [Map<City, number>, number]): [Map<City, number>, number][] =>
+        range(rest).map((count: number): [Map<City, number>, number] => [cities, total + count]))
+      .filter(([, total]: [Map<City, number>, number]): boolean => total > 0);
+  }
 }
 
 export class Context {
-  private readonly map: Map<ContextType, number> = new Map<ContextType, number>();
+  /** Werte je ContextType als Array statt Map: Bei vielen Städten entstehen über eine Million Szenarien. */
+  private readonly values: number[];
+  private readonly cities: Map<City, number>;
 
-  public constructor(map: Map<ContextType, number>) {
-    this.map = map;
+  public constructor(participants: number, leaders: number, days: number,
+                     cities: Map<City, number> = new Map<City, number>()) {
+    // Reihenfolge wie in ContextType
+    this.values = [participants, leaders, days];
+    this.cities = cities;
   }
 
   public get(type: ContextType): number {
-    return this.map.get(type) || 0;
+    return this.values[type];
+  }
+
+  public getParticipantsFrom(city: City): number {
+    return this.cities.get(city) || 0;
   }
 }
 
@@ -162,6 +263,20 @@ class PerDayModifier extends PositionModifier {
 
 export const PER_DAY = new PerDayModifier();
 
+class PerNightModifier extends PositionModifier {
+
+  modify(context: Context): number {
+    return Math.max(0, context.get(ContextType.DAYS) - 1);
+  }
+
+  getDescription(): string {
+    return 'pro Nacht';
+  }
+
+}
+
+export const PER_NIGHT = new PerNightModifier();
+
 export class PerParticipantGroup extends GroupModifier {
 
   getUnit(): string {
@@ -173,9 +288,35 @@ export class PerParticipantGroup extends GroupModifier {
   }
 }
 
+export class PerCityModifier extends PositionModifier {
+
+  private city: City;
+
+  constructor(city: City) {
+    super();
+    this.city = city;
+  }
+
+  public getCity(): City {
+    return this.city;
+  }
+
+  public setCity(city: City): void {
+    this.city = city;
+  }
+
+  modify(context: Context): number {
+    return context.getParticipantsFrom(this.city);
+  }
+
+  getDescription(): string {
+    return 'pro Teilnehmer aus ' + this.city.getName();
+  }
+}
+
 export interface ModifierOption {
   label: string;
-  create: () => PositionModifier;
+  create: (cities: City[]) => PositionModifier;
 }
 
 export const MODIFIER_OPTIONS: ModifierOption[] = [
@@ -183,8 +324,10 @@ export const MODIFIER_OPTIONS: ModifierOption[] = [
   {label: 'pro Teilnehmer', create: () => PER_PARTICIPANT},
   {label: 'pro Leiter', create: () => PER_LEADER},
   {label: 'pro Tag', create: () => PER_DAY},
+  {label: 'pro Nacht', create: () => PER_NIGHT},
   {label: 'pro X Personen', create: () => new PerGroupModifier(10)},
   {label: 'pro X Teilnehmer', create: () => new PerParticipantGroup(10)},
+  {label: 'pro Teilnehmer aus …', create: (cities: City[]) => new PerCityModifier(cities[0])},
 ];
 
 export class Position {

@@ -2,20 +2,58 @@
   <mat-icon aria-hidden="true">savings</mat-icon>
   <span class="title">CampPlan</span>
   <span class="spacer"></span>
+  <mat-slide-toggle class="per-participant" [checked]="perParticipant()" (change)="perParticipant.set($event.checked)">
+    pro Teilnehmer
+  </mat-slide-toggle>
   <input #fileInput type="file" accept=".json,application/json" hidden (change)="open(fileInput)"/>
-  <button mat-icon-button (click)="fileInput.click()" aria-label="Plan öffnen" matTooltip="Plan öffnen (Strg+O)">
+  <!-- Auf schmalen Bildschirmen stehen diese Aktionen im Überlaufmenü (M3: höchstens drei Aktionen in der Leiste) -->
+  <button mat-icon-button class="wide-only" (click)="fileInput.click()" aria-label="Plan öffnen"
+          matTooltip="Plan öffnen (Strg+O)">
     <mat-icon>folder_open</mat-icon>
   </button>
-  <button mat-icon-button (click)="save()" aria-label="Plan speichern" matTooltip="Plan speichern (Strg+S)">
+  <button mat-icon-button class="wide-only" (click)="save()" aria-label="Plan speichern"
+          matTooltip="Plan speichern (Strg+S)">
     <mat-icon>save</mat-icon>
+  </button>
+  <button mat-icon-button class="wide-only" (click)="exportPdf()" [disabled]="exporting()"
+          aria-label="Als PDF exportieren" matTooltip="Als PDF exportieren">
+    <mat-icon>picture_as_pdf</mat-icon>
   </button>
   <button mat-icon-button [matMenuTriggerFor]="moreMenu" aria-label="Weitere Aktionen" matTooltip="Weitere Aktionen">
     <mat-icon>more_vert</mat-icon>
   </button>
   <mat-menu #moreMenu="matMenu" xPosition="before">
+    <div class="compact-only">
+      <button mat-menu-item (click)="fileInput.click()">
+        <mat-icon>folder_open</mat-icon>
+        <span>Plan öffnen</span>
+      </button>
+      <button mat-menu-item (click)="save()">
+        <mat-icon>save</mat-icon>
+        <span>Plan speichern</span>
+      </button>
+      <button mat-menu-item (click)="exportPdf()" [disabled]="exporting()">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Als PDF exportieren</span>
+      </button>
+      <mat-divider></mat-divider>
+    </div>
+    <button mat-menu-item role="menuitemcheckbox" [attr.aria-checked]="dark()"
+            (click)="$event.stopPropagation(); theme.setDark(!dark())">
+      <mat-icon>dark_mode</mat-icon>
+      <span class="menu-toggle">
+        Dunkler Modus
+        <mat-slide-toggle [checked]="dark()" tabindex="-1" aria-hidden="true"></mat-slide-toggle>
+      </span>
+    </button>
+    <mat-divider></mat-divider>
     <button mat-menu-item (click)="reset()">
       <mat-icon>restart_alt</mat-icon>
       <span>Beispielplan laden</span>
+    </button>
+    <button mat-menu-item (click)="resetAll()">
+      <mat-icon>delete_forever</mat-icon>
+      <span>Alle Einstellungen zurücksetzen</span>
     </button>
   </mat-menu>
 </mat-toolbar>

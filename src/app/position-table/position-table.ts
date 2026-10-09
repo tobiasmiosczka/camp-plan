@@ -11,9 +11,10 @@ import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatTable, MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {
-  Context, ContextRange, ContextType, GroupModifier, MODIFIER_OPTIONS, ModifierOption, Position, PositionModifier, Range
+  City, GroupModifier, MODIFIER_OPTIONS, ModifierOption, PerCityModifier, Position, PositionModifier
 } from '../calculation/position';
 import {CurrencyRangePipe} from '../currency-range-pipe';
+import {EuroInputDirective} from '../euro-input';
 import {ValueRange} from '../value-range';
 
 @Component({
@@ -30,6 +31,7 @@ import {ValueRange} from '../value-range';
     FormsModule,
     TextFieldModule,
     CurrencyRangePipe,
+    EuroInputDirective,
   ],
   templateUrl: './position-table.html',
   styleUrl: './position-table.css',
@@ -39,8 +41,12 @@ export class PositionTableComponent {
   @Input({required: true})
   positions: Position[] = [];
 
+  /** Spanne je Position über alle Szenarien, vom Konto vorberechnet. */
   @Input({required: true})
-  contextRange: ContextRange = new ContextRange(new Map<ContextType, Range>());
+  sums: Map<Position, ValueRange> = new Map<Position, ValueRange>();
+
+  @Input({required: true})
+  cities: City[] = [];
 
   @Input()
   perParticipant: boolean = false;
@@ -65,6 +71,15 @@ export class PositionTableComponent {
     return modifier instanceof GroupModifier;
   }
 
+  protected isCity(modifier: PositionModifier): modifier is PerCityModifier {
+    return modifier instanceof PerCityModifier;
+  }
+
+  protected setCity(modifier: PerCityModifier, city: City): void {
+    modifier.setCity(city);
+    this.changed.emit();
+  }
+
   protected setTitle(position: Position, title: string): void {
     position.setTitle(title);
     this.changed.emit();
@@ -81,7 +96,7 @@ export class PositionTableComponent {
   }
 
   protected addModifier(position: Position, option: ModifierOption): void {
-    position.addModifier(option.create());
+    position.addModifier(option.create(this.cities));
     this.changed.emit();
   }
 
@@ -113,21 +128,7 @@ export class PositionTableComponent {
     }
   }
 
-  protected getSum(position: Position, perParticipant: boolean): ValueRange {
-    const numbers: number[] = this.contextRange
-      .getPermutations()
-      .map((e: Context): number => this.calculate(position, e, perParticipant));
-    return this.toRange(numbers);
-  }
-
-  private calculate(position: Position, context: Context, perParticipant: boolean): number {
-    return perParticipant ? position.getSum(context) / context.get(ContextType.PARTICIPANTS) : position.getSum(context);
-  }
-
-  private toRange(numbers: number[]): ValueRange {
-    return {
-      min: Math.min(...numbers),
-      max: Math.max(...numbers)
-    };
+  protected getSum(position: Position): ValueRange {
+    return this.sums.get(position) ?? {min: 0, max: 0};
   }
 }

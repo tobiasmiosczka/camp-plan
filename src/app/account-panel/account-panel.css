@@ -3,6 +3,17 @@
   padding: 24px;
 }
 
+/* M3-Fensterklassen: kompakt < 600 dp mit 16 dp Rand, sonst 24 dp */
+@media (max-width: 599px) {
+  :host {
+    padding: 16px;
+  }
+
+  .page {
+    gap: 16px;
+  }
+}
+
 .page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -16,6 +27,7 @@
     grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
   }
 
+  .cities,
   .t-account-card,
   .chart {
     grid-column: 1 / -1;
@@ -53,6 +65,28 @@ mat-card-content {
   width: 110px;
 }
 
+.city-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.city {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.city-name {
+  width: 240px;
+}
+
+.city-count {
+  width: 110px;
+}
+
 .summary mat-card-content {
   display: flex;
   flex-direction: column;
@@ -62,18 +96,25 @@ mat-card-content {
   box-sizing: border-box;
 }
 
+/* Die zentrale Kennzahl als tonale Karte (M3: Hervorhebung über Farbrollen statt über Rahmen) */
+.summary {
+  --mat-card-outlined-container-color: var(--mat-sys-secondary-container);
+  --mat-card-outlined-outline-color: transparent;
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.summary.negative {
+  --mat-card-outlined-container-color: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
 .summary-label {
-  font: var(--mat-sys-label-large);
-  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-title-medium);
 }
 
 .summary-value {
-  font: var(--mat-sys-headline-small);
-  color: var(--mat-sys-primary);
-}
-
-.summary.negative .summary-value {
-  color: var(--mat-sys-error);
+  font: var(--mat-sys-headline-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-hint {
@@ -81,11 +122,6 @@ mat-card-content {
   align-items: center;
   gap: 8px;
   font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-error);
-}
-
-.per-participant {
-  margin-top: 12px;
 }
 
 /* T-Konto: Ausgaben links, Einnahmen rechts; ab schmaler Breite untereinander */
@@ -127,7 +163,7 @@ mat-card-content {
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1599px) {
   .t-head.debit { order: 1; }
   .t-body.debit { order: 2; }
   .t-total.debit { order: 3; margin-bottom: 32px; }
@@ -136,7 +172,8 @@ mat-card-content {
   .t-total.credit { order: 6; }
 }
 
-@media (min-width: 1280px) {
+/* Nebeneinander erst, wenn beide Tabellen vollständig Platz haben */
+@media (min-width: 1600px) {
   .t-account {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -155,7 +192,28 @@ mat-card-content {
   }
 }
 
+.dimensions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dimensions mat-form-field {
+  width: 240px;
+}
+
 .plot {
   display: block;
   margin-top: 16px;
+  height: 640px;
+}
+
+@media (max-width: 599px) {
+  .plot {
+    height: 420px;
+  }
+
+  .dimensions mat-form-field {
+    width: 100%;
+  }
 }
