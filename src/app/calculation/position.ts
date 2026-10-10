@@ -330,6 +330,18 @@ export const MODIFIER_OPTIONS: ModifierOption[] = [
   {label: 'pro Teilnehmer aus …', create: (cities: City[]) => new PerCityModifier(cities[0])},
 ];
 
+/** Feste Reihenfolge der Faktoren je Art, wie im Auswahlmenü. */
+const MODIFIER_ORDER: Function[] = [
+  PerPersonModifier, PerParticipantModifier, PerLeaderModifier, PerDayModifier, PerNightModifier,
+  PerGroupModifier, PerParticipantGroup, PerCityModifier,
+];
+
+/** Sortiert nach Art, gleiche Arten nach Beschreibung (z. B. Gruppengröße oder Stadt). */
+function compareModifiers(a: PositionModifier, b: PositionModifier): number {
+  return MODIFIER_ORDER.indexOf(a.constructor) - MODIFIER_ORDER.indexOf(b.constructor)
+    || a.getDescription().localeCompare(b.getDescription(), 'de', {numeric: true});
+}
+
 export class Position {
 
   private title: string;
@@ -339,7 +351,7 @@ export class Position {
   public constructor(title: string, amount: number, positionModifiers: Array<PositionModifier> = []) {
     this.title = title;
     this.amount = amount;
-    this.positionModifier = positionModifiers;
+    this.positionModifier = [...positionModifiers].sort(compareModifiers);
   }
 
   public getTitle(): string {
@@ -372,6 +384,7 @@ export class Position {
 
   public addModifier(modifier: PositionModifier): void {
     this.positionModifier.push(modifier);
+    this.positionModifier.sort(compareModifiers);
   }
 
   public removeModifier(modifier: PositionModifier): void {
