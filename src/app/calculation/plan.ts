@@ -4,6 +4,8 @@ import {
 } from './position';
 
 export interface Plan {
+  /** Projektname, z. B. „Sommerlager 2027“; leer, wenn keiner vergeben ist. */
+  name: string;
   contextRange: ContextRange;
   debit: Position[];
   credit: Position[];
@@ -29,6 +31,8 @@ interface CityData {
 /** Version 1 kannte nur eine Teilnehmerspanne ohne Städte und wird beim Öffnen noch gelesen. */
 interface PlanData {
   version: 2;
+  /** Seit dem Projektnamen; ältere Dateien haben keinen. */
+  name?: string;
   days: Range;
   leaders: Range;
   cities: CityData[];
@@ -42,6 +46,7 @@ export function defaultPlan(): Plan {
   const huenxeWesel = new City('Hünxe/Wesel', {start: 0, end: 2});
   const others = City.others({start: 0, end: 2});
   return {
+    name: 'Beispiel-Zeltlager',
     contextRange: new ContextRange(new Map<ContextType, Range>([
       [ContextType.LEADERS, {start: 2, end: 8}],
       [ContextType.DAYS, {start: 2, end: 3}],
@@ -73,6 +78,7 @@ export function defaultPlan(): Plan {
 /** Plan ohne Städte und Positionen; Tage und Leiter wie im Beispiel. */
 export function emptyPlan(): Plan {
   return {
+    name: '',
     contextRange: new ContextRange(new Map<ContextType, Range>([
       [ContextType.LEADERS, {start: 2, end: 8}],
       [ContextType.DAYS, {start: 2, end: 3}],
@@ -86,6 +92,7 @@ export function planToJson(plan: Plan): string {
   const cities: City[] = plan.contextRange.getCities();
   const data: PlanData = {
     version: 2,
+    name: plan.name,
     days: plan.contextRange.get(ContextType.DAYS),
     leaders: plan.contextRange.get(ContextType.LEADERS),
     cities: cities.map((city: City): CityData => city.isOthers()
@@ -111,6 +118,7 @@ export function planFromJson(json: string): Plan {
     ? [City.others(rangeFromData(data['participants'], 'Teilnehmer'))]
     : citiesFromData(data['cities']);
   return {
+    name: typeof data['name'] === 'string' ? data['name'] : '',
     contextRange: new ContextRange(new Map<ContextType, Range>([
       [ContextType.DAYS, rangeFromData(data['days'], 'Tage')],
       [ContextType.LEADERS, rangeFromData(data['leaders'], 'Leiter')],

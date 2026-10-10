@@ -61,6 +61,16 @@ describe('plan serialization', () => {
     expect(cities.length).toBe(2);
   });
 
+  it('keeps the project name and accepts files without one', () => {
+    const plan = defaultPlan();
+    plan.name = 'Sommerlager 2027';
+
+    expect(planFromJson(planToJson(plan)).name).toBe('Sommerlager 2027');
+    expect(planFromJson(JSON.stringify({
+      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], debit: [], credit: [],
+    })).name).toBe('');
+  });
+
   it('keeps the per-night modifier', () => {
     const plan = defaultPlan();
     plan.debit.push(new Position('Übernachtung', 10, [PER_NIGHT]));

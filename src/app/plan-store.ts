@@ -1,4 +1,4 @@
-import {Injectable, signal} from '@angular/core';
+import {Injectable, linkedSignal, signal} from '@angular/core';
 import {defaultPlan, emptyPlan, Plan, planFromJson, planToJson} from './calculation/plan';
 
 @Injectable({providedIn: 'root'})
@@ -7,6 +7,12 @@ export class PlanStore {
   private static readonly STORAGE_KEY = 'camp-plan';
 
   readonly plan = signal<Plan>(this.restore());
+
+  /**
+   * Projektname als eigenes Signal: Umbenennen soll Titel und Anzeige aktualisieren, aber keine neue Rechnung
+   * auslösen. Folgt automatisch, wenn ein anderer Plan geladen wird.
+   */
+  readonly name = linkedSignal<string>((): string => this.plan().name);
 
   /** Zeigt alle Beträge pro Teilnehmer statt als Gesamtsumme. */
   readonly perParticipant = signal<boolean>(false);
@@ -20,12 +26,18 @@ export class PlanStore {
     }
   }
 
+  rename(name: string): void {
+    this.plan().name = name;
+    this.name.set(name);
+    this.autosave();
+  }
+
   download(): void {
     const blob = new Blob([planToJson(this.plan())], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `camp-plan-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = fileName(this.plan().name, 'json');
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -66,4 +78,17 @@ export class PlanStore {
     }
     return defaultPlan();
   }
+}
+
+/** Dateiname aus Projektname und Datum, z. B. „sommerlager-2027-2026-10-09.pdf“; ohne Namen „camp-plan-…“. */
+export function fileName(projectName: string, extension: string): string {
+  const slug: string = projectName
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    // Lange Namen an einer Wortgrenze kürzen, damit Dateinamen handlich bleiben
+    .replace(/^(.{1,60})(-.*)?$/, '$1')
+    .slice(0, 60);
+  return `${slug || 'camp-plan'}-${new Date().toISOString().slice(0, 10)}.${extension}`;
 }

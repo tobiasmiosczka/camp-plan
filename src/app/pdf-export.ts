@@ -1,6 +1,7 @@
 import {Injectable} from '@angular/core';
 import {Range} from './calculation/position';
 import {ValueRange} from './value-range';
+import {fileName} from './plan-store';
 
 export interface ReportPosition {
   title: string;
@@ -25,6 +26,8 @@ export interface ReportChart {
 
 /** Alles, was die PDF zeigt – zusammengestellt vom Konto, das die Szenarien bereits durchgerechnet hat. */
 export interface Report {
+  /** Projektname; leer, wenn keiner vergeben ist. */
+  name: string;
   perParticipant: boolean;
   days: Range;
   leaders: Range;
@@ -156,11 +159,17 @@ export class PdfExport {
       table(options, [1, 3]);
     };
 
+    // Titel ist der Projektname; ohne Namen der allgemeine Titel. Lange Namen brechen um.
     const icon: number = 8;
+    const name: string = report.name.trim();
+    const titleLines: string[] = doc.setFont('helvetica', 'bold').setFontSize(18)
+      .splitTextToSize(name || 'CampPlan – Kalkulation', width - icon - 3);
     doc.addImage(piggyBankImage(), 'PNG', margin, y, icon, icon);
-    doc.setFont('helvetica', 'bold').setFontSize(18).text('CampPlan – Kalkulation', margin + icon + 3, y + 6.5);
+    doc.text(titleLines, margin + icon + 3, y + 6.5);
+    y += (titleLines.length - 1) * 7.5;
+    const stand: string = `Stand: ${new Date().toLocaleString('de', {dateStyle: 'long', timeStyle: 'short'})}`;
     doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100)
-      .text(`Stand: ${new Date().toLocaleString('de', {dateStyle: 'long', timeStyle: 'short'})}`, margin, y + 12)
+      .text(name ? `CampPlan-Kalkulation  ·  ${stand}` : stand, margin, y + 12)
       .setTextColor(0);
     y += 18;
 
@@ -189,22 +198,56 @@ export class PdfExport {
       }
     });
 
-    heading('Rahmenbedingungen');
-    table({
-      head: [['Rahmenbedingung', 'von', 'bis']],
-      body: [report.days, report.leaders, report.participants].map((range: Range, i: number): string[] =>
-        [['Tage', 'Leiter', 'Teilnehmer gesamt'][i], `${range.start}`, `${range.end}`]),
-      columnStyles: {0: {cellWidth: 90}},
-    }, [1, 2]);
+    // Rahmenbedingungen und Städte nebeneinander, jede Tabelle in einer halben Seitenbreite
+    const gap: number = 6;
+    const half: number = (width - gap) / 2;
+    const columns: { title: string, x: number, options: Options }[] = [{
+      title: 'Rahmenbedingungen',
+      x: margin,
+      options: {
+        head: [['Rahmenbedingung', 'von', 'bis']],
+        body: [report.days, report.leaders, report.participants].map((range: Range, i: number): string[] =>
+          [['Tage', 'Leiter', 'Teilnehmer gesamt'][i], `${range.start}`, `${range.end}`]),
+      },
+    }, {
+      title: 'Teilnehmende Städte',
+      x: margin + half + gap,
+      options: {
+        head: [['Stadt', 'von', 'bis']],
+        body: report.cities.map((city: ReportCity): string[] =>
+          [city.name, `${city.participants.start}`, `${city.participants.end}`]),
+      },
+    }];
+    if (y > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      y = margin;
+    }
+    const top: number = y;
+    const startPage: number = doc.getCurrentPageInfo().pageNumber;
+    // Weiter geht es unter der längeren Tabelle, auch wenn viele Städte auf die nächste Seite reichen
+    let end: { page: number, y: number } = {page: startPage, y: top};
+    for (const column of columns) {
+      doc.setPage(startPage);
+      doc.setFont('helvetica', 'bold').setFontSize(13).text(column.title, column.x, top + 5);
+      y = top + 8;
+      const pageWidth: number = doc.internal.pageSize.getWidth();
+      autoTable(doc, format({
+        ...column.options,
+        margin: {left: column.x, right: pageWidth - column.x - half, top: margin, bottom: margin},
+      }, [1, 2]));
+      const page: number = doc.getCurrentPageInfo().pageNumber;
+      if (page > end.page || (page === end.page && finalY(doc) > end.y)) {
+        end = {page, y: finalY(doc)};
+      }
+    }
+    doc.setPage(end.page);
+    y = end.y + 8;
 
-    heading('Teilnehmende Städte');
-    table({
-      head: [['Stadt', 'Teilnehmer von', 'Teilnehmer bis']],
-      body: report.cities.map((city: ReportCity): string[] =>
-        [city.name, `${city.participants.start}`, `${city.participants.end}`]),
-      columnStyles: {0: {cellWidth: 90}},
-    }, [1, 2]);
-
+    // Ausgaben beginnen immer auf einer neuen Seite; Seite 1 bleibt die Zusammenfassung
+    if (y > margin) {
+      doc.addPage();
+      y = margin;
+    }
     positions('Ausgaben', report.debit, report.debitTotal);
     positions('Einnahmen', report.credit, report.creditTotal);
 
@@ -235,6 +278,6 @@ export class PdfExport {
       doc.setPage(page).setFont('helvetica', 'normal').setFontSize(8).setTextColor(120)
         .text(`Seite ${page} von ${pages}`, margin + width, doc.internal.pageSize.getHeight() - 8, {align: 'right'});
     }
-    doc.save(`camp-plan-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(fileName(report.name, 'pdf'));
   }
 }

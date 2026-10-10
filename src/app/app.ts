@@ -1,4 +1,5 @@
-import { Component, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
+import { Component, effect, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,6 +30,15 @@ export class App {
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
 
   protected readonly perParticipant = this.store.perParticipant;
+
+  constructor() {
+    // Projektname im Browser-Tab, damit sich mehrere offene Pläne unterscheiden lassen
+    const title: Title = inject(Title);
+    effect((): void => {
+      const name: string = this.store.name().trim();
+      title.setTitle(name ? `${name} – CampPlan` : 'CampPlan');
+    });
+  }
 
   protected readonly theme = inject(ThemeStore);
   private readonly pdfExport = inject(PdfExport);

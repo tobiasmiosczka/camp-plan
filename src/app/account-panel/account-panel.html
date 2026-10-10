@@ -1,4 +1,27 @@
 <div class="page">
+  <mat-card appearance="outlined" class="project">
+    <mat-card-content>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="project-name">
+        <mat-label>Projektname</mat-label>
+        <input matInput placeholder="z. B. Sommerlager 2027" maxlength="120" autocomplete="off"
+               [ngModel]="name()" (ngModelChange)="rename($event)"/>
+      </mat-form-field>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="summary" [class.negative]="balance.min < 0">
+    <mat-card-content>
+      <div class="summary-label">Überschuss {{ perParticipant ? 'pro Teilnehmer' : 'gesamt' }}</div>
+      <div class="summary-value">{{ balance | currencyRange }}</div>
+      @if (balance.min < 0) {
+        <div class="summary-hint">
+          <mat-icon aria-hidden="true">warning</mat-icon>
+          In mindestens einem Szenario entsteht ein Defizit.
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+
   <mat-card appearance="outlined" class="settings">
     <mat-card-header>
       <mat-card-title>Rahmenbedingungen</mat-card-title>
@@ -27,19 +50,6 @@
           </fieldset>
         }
       </div>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card appearance="outlined" class="summary" [class.negative]="balance.min < 0">
-    <mat-card-content>
-      <div class="summary-label">Überschuss {{ perParticipant ? 'pro Teilnehmer' : 'gesamt' }}</div>
-      <div class="summary-value">{{ balance | currencyRange }}</div>
-      @if (balance.min < 0) {
-        <div class="summary-hint">
-          <mat-icon aria-hidden="true">warning</mat-icon>
-          In mindestens einem Szenario entsteht ein Defizit.
-        </div>
-      }
     </mat-card-content>
   </mat-card>
 

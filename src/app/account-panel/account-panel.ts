@@ -78,6 +78,8 @@ export class AccountPanel {
 
   protected perParticipant: boolean = false;
 
+  protected readonly name = this.store.name;
+
   public constructor() {
     const pdfExport: PdfExport = inject(PdfExport);
     pdfExport.setSource((): Promise<Report> => this.report());
@@ -113,6 +115,10 @@ export class AccountPanel {
     this.compute();
   }
 
+  protected rename(name: string): void {
+    this.store.rename(name);
+  }
+
   private async report(): Promise<Report> {
     const position = (p: Position): ReportPosition => ({
       title: p.getTitle(),
@@ -121,6 +127,7 @@ export class AccountPanel {
       sum: this.positionSums.get(p) ?? {min: 0, max: 0},
     });
     return {
+      name: this.store.name(),
       perParticipant: this.perParticipant,
       days: this.contextRange.get(ContextType.DAYS),
       leaders: this.contextRange.get(ContextType.LEADERS),

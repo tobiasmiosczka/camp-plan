@@ -22,17 +22,38 @@
   margin: 0 auto;
 }
 
+/* Ab 1000 dp drei Spalten: Name neben dem Überschuss, Rahmenbedingungen neben den Städten */
 @media (min-width: 1000px) {
   .page {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .cities,
+  .project,
+  .cities {
+    grid-column: span 2;
+  }
+
   .t-account-card,
   .chart,
   .distribution {
     grid-column: 1 / -1;
   }
+}
+
+.project mat-card-content {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.project-name {
+  width: 100%;
+}
+
+/* Der Name ist die Überschrift des Projekts */
+.project-name input {
+  font: var(--mat-sys-headline-small);
 }
 
 mat-card-content {
