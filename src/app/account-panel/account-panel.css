@@ -139,6 +139,10 @@ mat-card-content {
   font-variant-numeric: tabular-nums;
 }
 
+.summary-scenarios {
+  font: var(--mat-sys-body-medium);
+}
+
 .summary-hint {
   display: flex;
   align-items: center;

@@ -13,6 +13,7 @@
     <mat-card-content>
       <div class="summary-label">Überschuss {{ perParticipant ? 'pro Teilnehmer' : 'gesamt' }}</div>
       <div class="summary-value">{{ balance | currencyRange }}</div>
+      <div class="summary-scenarios">{{ scenarioCount.toLocaleString('de') }} Szenarien</div>
       @if (balance.min < 0) {
         <div class="summary-hint">
           <mat-icon aria-hidden="true">warning</mat-icon>
@@ -57,7 +58,7 @@
     <mat-card-header>
       <mat-card-title>Teilnehmende Städte</mat-card-title>
       <mat-card-subtitle>
-        {{ participantsLabel() }} Teilnehmer insgesamt · {{ scenarioCount.toLocaleString('de') }} Szenarien
+        {{ participantsLabel() }} Teilnehmer insgesamt
       </mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
