@@ -69,6 +69,16 @@ describe('PlanCalculation', () => {
     expect(runs).toBe(before);
   });
 
+  it('hands out the result of the latest change, even right after it', async () => {
+    const before = await calculation.latest();
+
+    store.setAmount(store.plan().debit[1], 700);
+    const after = await calculation.latest();
+
+    expect(after).not.toBe(before);
+    expect(after.positionSums.get(store.plan().debit[1])).toEqual({min: 700, max: 700});
+  });
+
   it('calculates again for the per-participant view', async () => {
     const before = runs;
 

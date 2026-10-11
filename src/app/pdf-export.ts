@@ -1,7 +1,11 @@
-import {Injectable} from '@angular/core';
-import {Range} from './calculation/position';
+import {computed, inject, Injectable, signal, Signal, untracked} from '@angular/core';
+import {toObservable} from '@angular/core/rxjs-interop';
+import {filter, firstValueFrom, Observable} from 'rxjs';
+import {Plan} from './calculation/plan';
+import {City, ContextRange, ContextType, Position, PositionModifier, Range} from './calculation/position';
+import {PlanCalculation, PlanResult} from './plan-calculation';
+import {fileName, PlanStore} from './plan-store';
 import {ValueRange} from './value-range';
-import {fileName} from './plan-store';
 
 export interface ReportPosition {
   title: string;
@@ -24,7 +28,15 @@ export interface ReportChart {
   aspect: number;
 }
 
-/** Alles, was die PDF zeigt – zusammengestellt vom Konto, das die Szenarien bereits durchgerechnet hat. */
+/** Ein Diagramm, das sich für die PDF in hellen Farben rendern lässt. */
+export interface ChartSource {
+  printImage(): Promise<ReportChart | null>;
+}
+
+/** Die beiden Diagramme der PDF, in dieser Reihenfolge. */
+export type ChartKind = 'scenario' | 'distribution';
+
+/** Alles, was die PDF zeigt: der Plan, das Ergebnis der Rechnung und beide Diagramme. */
 export interface Report {
   /** Projektname; leer, wenn keiner vergeben ist. */
   name: string;
@@ -79,21 +91,81 @@ export function formatRange(range: Range): string {
   return range.start === range.end ? `${range.start}` : `${range.start}–${range.end}`;
 }
 
-/** Vermittelt zwischen dem Export-Button im Header und dem Konto, das die Zahlen kennt. */
+const ZERO: ValueRange = {min: 0, max: 0};
+
+/**
+ * Erstellt die PDF aus dem Plan im {@link PlanStore} und dem Ergebnis der {@link PlanCalculation}. Die Diagramme
+ * melden sich selbst an; solange sie noch nicht geladen sind, fordert die PDF sie über {@link chartsRequested} an.
+ */
 @Injectable({providedIn: 'root'})
 export class PdfExport {
 
-  private source: (() => Promise<Report>) | null = null;
+  private readonly store = inject(PlanStore);
+  private readonly calculation = inject(PlanCalculation);
 
-  setSource(source: (() => Promise<Report>) | null): void {
-    this.source = source;
+  private readonly chartsSignal = signal<Partial<Record<ChartKind, ChartSource>>>({});
+  private readonly requested = signal<boolean>(false);
+  /** Wird gesetzt, sobald die PDF Diagramme braucht, die noch nicht geladen sind (sie werden erst beim Scrollen geladen). */
+  readonly chartsRequested: Signal<boolean> = this.requested.asReadonly();
+  private readonly charts$: Observable<Partial<Record<ChartKind, ChartSource>>> = toObservable(this.chartsSignal);
+  private readonly ready = computed((): boolean => {
+    const charts = this.chartsSignal();
+    return charts.scenario !== undefined && charts.distribution !== undefined;
+  });
+
+  /** Ein Diagramm meldet sich an; die zurückgegebene Funktion meldet es wieder ab. */
+  registerChart(kind: ChartKind, source: ChartSource): () => void {
+    this.chartsSignal.update((charts) => ({...charts, [kind]: source}));
+    return (): void => this.chartsSignal.update((charts) => charts[kind] === source ? {...charts, [kind]: undefined} : charts);
+  }
+
+  /** Was die PDF zeigt, mit dem Ergebnis der aktuellen Eingaben statt dem einer überholten Rechnung. */
+  async report(): Promise<Report> {
+    const result: PlanResult = await this.calculation.latest();
+    const plan: Plan = this.store.plan();
+    const contextRange: ContextRange = plan.contextRange;
+    const position = (p: Position): ReportPosition => ({
+      title: p.getTitle(),
+      amount: p.getAmount(),
+      factors: p.getModifiers().map((modifier: PositionModifier): string => modifier.getDescription()).join(' × '),
+      sum: result.positionSums.get(p) ?? ZERO,
+    });
+    const scenarioCount: number = result.results.scenarioCount;
+    const [chart, distribution] = await this.chartImages();
+    return {
+      name: this.store.name(),
+      perParticipant: this.store.perParticipant(),
+      days: contextRange.get(ContextType.DAYS),
+      leaders: contextRange.get(ContextType.LEADERS),
+      participants: scenarioCount > 0 ? contextRange.get(ContextType.PARTICIPANTS) : {start: 0, end: 0},
+      cities: contextRange.getCities().map((city: City): ReportCity =>
+        ({name: city.getName(), participants: city.getParticipants()})),
+      scenarioCount,
+      deficitShare: result.results.deficitShare(),
+      debit: plan.debit.map(position),
+      credit: plan.credit.map(position),
+      debitTotal: result.calculation.debitTotal,
+      creditTotal: result.calculation.creditTotal,
+      balance: result.calculation.balance,
+      chart,
+      distribution,
+    };
+  }
+
+  /** Wartet, bis beide Diagramme angemeldet sind, und rendert sie für Papier. */
+  private async chartImages(): Promise<[ReportChart | null, ReportChart | null]> {
+    if (!this.ready()) {
+      this.requested.set(true);
+    }
+    // toObservable meldet einem neuen Abonnenten zuerst den zuletzt gesehenen Wert, auch wenn er inzwischen veraltet ist
+    const charts: Record<ChartKind, ChartSource> = await firstValueFrom(this.charts$.pipe(
+      filter((charts): charts is Record<ChartKind, ChartSource> => charts === untracked(this.chartsSignal)
+        && charts.scenario !== undefined && charts.distribution !== undefined)));
+    return Promise.all([charts.scenario.printImage(), charts.distribution.printImage()]);
   }
 
   async download(): Promise<void> {
-    if (!this.source) {
-      throw new Error('Es gibt keine Rechnung zum Exportieren.');
-    }
-    const report: Report = await this.source();
+    const report: Report = await this.report();
     // Erst bei Bedarf laden, damit jsPDF den Start der App nicht verlangsamt
     const [{jsPDF}, {autoTable}] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
 

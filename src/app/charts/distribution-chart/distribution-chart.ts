@@ -1,10 +1,10 @@
-import {Component, computed, inject, input, signal} from '@angular/core';
+import {Component, computed, DestroyRef, inject, input, signal} from '@angular/core';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatCardModule} from '@angular/material/card';
 import {PlotlyModule} from 'angular-plotly.js';
 import {EngineResult} from '../../calculation/engine';
 import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios';
-import {formatEuro, ReportChart} from '../../pdf-export';
+import {ChartSource, formatEuro, PdfExport, ReportChart} from '../../pdf-export';
 import {ThemeStore} from '../../theme-store';
 import {ChartStyle, Figure, NO_SCENARIOS, reportChart} from '../chart-style';
 
@@ -19,7 +19,7 @@ const METRIC_LABELS: Record<Metric, string> = {balance: 'Überschuss', debit: 'A
   templateUrl: './distribution-chart.html',
   styleUrl: './distribution-chart.css',
 })
-export class DistributionChart {
+export class DistributionChart implements ChartSource {
 
   readonly results = input.required<ScenarioResults>();
 
@@ -37,6 +37,11 @@ export class DistributionChart {
     this.theme.dark();
     return this.figure(new ChartStyle());
   });
+
+  constructor() {
+    // Für die PDF verfügbar, solange das Diagramm gezeigt wird
+    inject(DestroyRef).onDestroy(inject(PdfExport).registerChart('distribution', this));
+  }
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {

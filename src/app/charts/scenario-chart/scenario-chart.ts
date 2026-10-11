@@ -1,4 +1,4 @@
-import {Component, computed, inject, input, linkedSignal} from '@angular/core';
+import {Component, computed, DestroyRef, inject, input, linkedSignal} from '@angular/core';
 import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
@@ -6,7 +6,7 @@ import {PlotlyModule} from 'angular-plotly.js';
 import {Data} from 'plotly.js-dist-min';
 import {City, ContextType} from '../../calculation/position';
 import {Dimension, groupKey, sameDimension, ScenarioResults} from '../../calculation/scenarios';
-import {formatEuro, ReportChart} from '../../pdf-export';
+import {ChartSource, formatEuro, PdfExport, ReportChart} from '../../pdf-export';
 import {PlanStore} from '../../plan-store';
 import {ThemeStore} from '../../theme-store';
 import {ValueRange} from '../../value-range';
@@ -38,7 +38,7 @@ interface Axes {
   templateUrl: './scenario-chart.html',
   styleUrl: './scenario-chart.css',
 })
-export class ScenarioChart {
+export class ScenarioChart implements ChartSource {
 
   readonly results = input.required<ScenarioResults>();
 
@@ -91,6 +91,11 @@ export class ScenarioChart {
   /** Für mat-select: Optionen werden bei jeder Rechnung neu erzeugt; „none“ steht für keine Y-Achse. */
   protected readonly compareDimension = (a: Dimension | 'none' | null, b: Dimension | 'none' | null): boolean =>
     typeof a === 'object' && typeof b === 'object' ? sameDimension(a, b) : a === b;
+
+  constructor() {
+    // Für die PDF verfügbar, solange das Diagramm gezeigt wird
+    inject(DestroyRef).onDestroy(inject(PdfExport).registerChart('scenario', this));
+  }
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {

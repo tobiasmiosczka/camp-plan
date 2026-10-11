@@ -165,11 +165,11 @@
     <div class="charts">
       @if (result(); as result) {
         <!-- Während einer neuen Rechnung bleiben die Diagramme stehen und werden nur abgedeckt: Plotly neu aufzubauen dauert -->
-        <app-scenario-chart #scenarioChart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
+        <app-scenario-chart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
                             [results]="result.results" [cities]="contextRange().getCities()"
                             [perParticipant]="perParticipant()"></app-scenario-chart>
 
-        <app-distribution-chart #distributionChart class="distribution" [class.is-loading]="loading()"
+        <app-distribution-chart class="distribution" [class.is-loading]="loading()"
                                 [attr.aria-busy]="loading()" [results]="result.results"
                                 [calculation]="result.calculation"
                                 [perParticipant]="perParticipant()"></app-distribution-chart>

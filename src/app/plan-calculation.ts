@@ -1,4 +1,4 @@
-import {computed, effect, inject, Injectable, linkedSignal, resource, signal} from '@angular/core';
+import {computed, effect, inject, Injectable, linkedSignal, resource, signal, untracked} from '@angular/core';
 import {toObservable} from '@angular/core/rxjs-interop';
 import {filter, firstValueFrom, Observable} from 'rxjs';
 import {calculationKey, EngineResult} from './calculation/engine';
@@ -11,6 +11,8 @@ import {ValueRange} from './value-range';
 
 /** Ein vollständiges Ergebnis, den Positionen und Städten des Plans wieder zugeordnet. */
 export interface PlanResult {
+  /** Für welche Zahlen gerechnet wurde, siehe {@link calculationKey}. */
+  key: string;
   calculation: EngineResult;
   results: ScenarioResults;
   positionSums: Map<Position, ValueRange>;
@@ -48,6 +50,7 @@ export class PlanCalculation {
       const positions: Position[] = [...plan.debit, ...plan.credit];
       const calculation: EngineResult = await this.runner.run(params.data, params.perParticipant, abortSignal);
       return {
+        key: params.key,
         calculation,
         results: new ScenarioResults(calculation.scenarios, calculation.values, plan.contextRange),
         positionSums: new Map<Position, ValueRange>(positions.map((position: Position, i: number): [Position, ValueRange] =>
@@ -72,7 +75,16 @@ export class PlanCalculation {
    */
   readonly skeleton = this.skeletonSignal.asReadonly();
 
-  private readonly loading$: Observable<boolean> = toObservable(this.resource.isLoading);
+  /** Das Ergebnis der aktuellen Eingaben oder ihr Fehler; null, solange dafür noch gerechnet wird. */
+  private readonly current = computed((): PlanResult | Error | null => {
+    const error: Error | undefined = this.resource.error();
+    if (error) {
+      return error;
+    }
+    const result: PlanResult | null = this.result();
+    return result?.key === this.request().key ? result : null;
+  });
+  private readonly current$: Observable<PlanResult | Error | null> = toObservable(this.current);
 
   constructor() {
     effect((onCleanup): void => {
@@ -87,9 +99,20 @@ export class PlanCalculation {
     });
   }
 
-  /** Erfüllt sich, sobald keine Rechnung mehr läuft, z. B. bevor die PDF entsteht. */
-  whenIdle(): Promise<boolean> {
-    return firstValueFrom(this.loading$.pipe(filter((loading: boolean): boolean => !loading)));
+  /**
+   * Das Ergebnis der aktuellen Eingaben, z. B. für die PDF; wartet, falls dafür noch gerechnet wird. Verglichen wird
+   * der Schlüssel statt „lädt gerade nicht“: Direkt nach einer Änderung hat die Rechnung womöglich noch gar nicht
+   * begonnen.
+   */
+  async latest(): Promise<PlanResult> {
+    // toObservable meldet einem neuen Abonnenten zuerst den zuletzt gesehenen Wert, auch wenn er inzwischen veraltet ist
+    const current: PlanResult | Error = await firstValueFrom(this.current$.pipe(
+      filter((current: PlanResult | Error | null): current is PlanResult | Error =>
+        current !== null && current === untracked(this.current))));
+    if (current instanceof Error) {
+      throw current;
+    }
+    return current;
   }
 
   /** Versucht dieselbe Rechnung erneut, etwa nach einem Fehler. */
