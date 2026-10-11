@@ -1,6 +1,6 @@
 import {ValueRange} from '../value-range';
 import {Calculation, calculate} from './calculator';
-import {Plan, planFromJson} from './plan';
+import {Plan, PlanData, planFromData} from './plan';
 import {City, Context, PerCityModifier, Position, PositionModifier} from './position';
 import {ScenarioColumns, toColumns} from './scenarios';
 
@@ -20,8 +20,8 @@ export interface EngineResult {
 
 export interface EngineRequest {
   id: number;
-  /** Der Plan als JSON wie beim Speichern: Klassen und Objekt-Identität überstehen den Weg zum Worker nicht. */
-  plan: string;
+  /** Der Plan als reine Daten wie beim Speichern: Klassen und Objekt-Identität überstehen den Weg zum Worker nicht. */
+  plan: PlanData;
   perParticipant: boolean;
 }
 
@@ -38,8 +38,8 @@ export function referencedCities(positions: Position[]): City[] {
 }
 
 /** Rechnet einen gespeicherten Plan vollständig durch; läuft im Worker, ohne Worker auch im Haupt-Thread. */
-export function evaluate(json: string, perParticipant: boolean): EngineResult {
-  const plan: Plan = planFromJson(json);
+export function evaluate(data: PlanData, perParticipant: boolean): EngineResult {
+  const plan: Plan = planFromData(data);
   const positions: Position[] = [...plan.debit, ...plan.credit];
   const relevant: City[] = referencedCities(positions);
   const contexts: Context[] = plan.contextRange.getPermutations(relevant);
@@ -66,16 +66,15 @@ export function transferables(result: EngineResult): ArrayBuffer[] {
 }
 
 /**
- * Alles aus dem gespeicherten Plan, was ein Ergebnis verändern kann. Titel und Namen fehlen: Umbenennen braucht
- * keine neue Rechnung.
+ * Alles aus dem Plan, was ein Ergebnis verändern kann. Titel und Namen fehlen: Umbenennen braucht keine neue
+ * Rechnung.
  */
-export function calculationKey(json: string, perParticipant: boolean): string {
-  const data = JSON.parse(json);
-  const numbers = (positions: { amount: number, modifiers: unknown[] }[]): unknown[] =>
+export function calculationKey(data: PlanData, perParticipant: boolean): string {
+  const numbers = (positions: PlanData['debit']): unknown[] =>
     positions.map((position): unknown[] => [position.amount, position.modifiers]);
   return JSON.stringify([
     perParticipant, data.days, data.leaders,
-    data.cities.map((city: { participants: unknown }): unknown => city.participants),
+    data.cities.map((city): unknown => city.participants),
     numbers(data.debit), numbers(data.credit),
   ]);
 }

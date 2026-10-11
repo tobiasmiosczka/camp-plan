@@ -112,6 +112,27 @@ export class ScenarioResults {
     return this.values.length;
   }
 
+  /**
+   * Durchschnitt über alle echten Szenarien; zusammengefasste zählen mit ihrem Gewicht. `values` steht in derselben
+   * Reihenfolge wie die Szenarien, ohne Angabe der Überschuss.
+   */
+  public mean(values: ArrayLike<number> = this.values): number {
+    let sum: number = 0;
+    for (let i = 0; i < values.length; i++) {
+      sum += values[i] * this.weights[i];
+    }
+    return this.scenarioCount > 0 ? sum / this.scenarioCount : 0;
+  }
+
+  /** Anteil der echten Szenarien mit Defizit, 0 bis 1; zusammengefasste zählen mit ihrem Gewicht. */
+  public deficitShare(): number {
+    let deficit: number = 0;
+    for (let i = 0; i < this.values.length; i++) {
+      deficit += this.values[i] < 0 ? this.weights[i] : 0;
+    }
+    return this.scenarioCount > 0 ? deficit / this.scenarioCount : 0;
+  }
+
   public isEmpty(): boolean {
     return this.values.length === 0;
   }

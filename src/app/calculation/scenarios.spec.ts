@@ -43,6 +43,17 @@ describe('ScenarioResults', () => {
     expect(histogram(merged.values, merged.weights, 10)).toEqual(histogram(full.values, full.weights, 10));
   });
 
+  it('averages and counts deficits over all real scenarios, also those merged into one', () => {
+    expect(merged.mean()).toBeCloseTo(full.mean(), 9);
+    expect(merged.mean(merged.scenarios.leaders)).toBeCloseTo(1.5, 9);
+
+    const centered = (results: ScenarioResults): ScenarioResults =>
+      new ScenarioResults(results.scenarios, results.values.map(value => value - 400), contextRange);
+    const deficits = full.values.filter(value => value < 400).length;
+    expect(centered(full).deficitShare()).toBeCloseTo(deficits / full.scenarioCount, 9);
+    expect(centered(merged).deficitShare()).toBeCloseTo(centered(full).deficitShare(), 9);
+  });
+
   it('lists the values a dimension can take', () => {
     expect(merged.domain({kind: 'city', city: b})).toEqual([1, 2, 3]);
     expect(merged.domain({kind: 'type', type: ContextType.PARTICIPANTS})).toEqual([1, 2, 3, 4, 5, 6, 7]);

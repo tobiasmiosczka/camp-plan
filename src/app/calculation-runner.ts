@@ -1,5 +1,6 @@
 import {Injectable, OnDestroy} from '@angular/core';
 import {EngineRequest, EngineResponse, EngineResult, evaluate} from './calculation/engine';
+import {PlanData} from './calculation/plan';
 
 interface Pending {
   id: number;
@@ -21,7 +22,7 @@ export class CalculationRunner implements OnDestroy {
   private pending: Pending | null = null;
   private nextId: number = 0;
 
-  run(plan: string, perParticipant: boolean, abortSignal?: AbortSignal): Promise<EngineResult> {
+  run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal): Promise<EngineResult> {
     if (typeof Worker === 'undefined') {
       return Promise.resolve().then((): EngineResult => evaluate(plan, perParticipant));
     }

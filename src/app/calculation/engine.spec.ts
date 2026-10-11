@@ -1,13 +1,13 @@
 import {calculate} from './calculator';
 import {calculationKey, evaluate, transferables} from './engine';
-import {defaultPlan, planToJson} from './plan';
+import {defaultPlan, planToData} from './plan';
 import {ContextType, Position} from './position';
 import {ScenarioResults} from './scenarios';
 
 describe('evaluate', () => {
   it('returns the same numbers as calculating the plan directly', () => {
     const plan = defaultPlan();
-    const result = evaluate(planToJson(plan), false);
+    const result = evaluate(planToData(plan), false);
     const relevant = plan.contextRange.getCities().slice(0, 3);
     const contexts = plan.contextRange.getPermutations(relevant);
     const expected = calculate(contexts, plan.contextRange, plan.debit, plan.credit, false);
@@ -20,7 +20,7 @@ describe('evaluate', () => {
 
   it('lists scenarios as columns that resolve to the cities of the plan', () => {
     const plan = defaultPlan();
-    const result = evaluate(planToJson(plan), false);
+    const result = evaluate(planToData(plan), false);
     const cities = plan.contextRange.getCities();
 
     // Dinslaken, Voerde und Hünxe/Wesel haben eigene Förderungen, „Sonstige“ nicht
@@ -31,7 +31,7 @@ describe('evaluate', () => {
   });
 
   it('hands over every column without copying', () => {
-    const result = evaluate(planToJson(defaultPlan()), false);
+    const result = evaluate(planToData(defaultPlan()), false);
 
     expect(transferables(result).length).toBe(6 + result.scenarios.cities.length);
     expect(new Set(transferables(result)).size).toBe(transferables(result).length);
@@ -41,15 +41,15 @@ describe('evaluate', () => {
 describe('calculationKey', () => {
   it('stays the same for renaming, but changes with any number', () => {
     const plan = defaultPlan();
-    const key = calculationKey(planToJson(plan), false);
+    const key = calculationKey(planToData(plan), false);
 
     plan.name = 'Sommerlager';
     plan.debit[1].setTitle('Turnhalle');
     plan.contextRange.getCities()[0].setName('Stadt A');
-    expect(calculationKey(planToJson(plan), false)).toBe(key);
+    expect(calculationKey(planToData(plan), false)).toBe(key);
 
-    expect(calculationKey(planToJson(plan), true)).not.toBe(key);
+    expect(calculationKey(planToData(plan), true)).not.toBe(key);
     plan.debit[1].setAmount(700);
-    expect(calculationKey(planToJson(plan), false)).not.toBe(key);
+    expect(calculationKey(planToData(plan), false)).not.toBe(key);
   });
 });

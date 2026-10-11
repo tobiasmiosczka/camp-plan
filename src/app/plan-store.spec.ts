@@ -76,9 +76,24 @@ describe('PlanStore', () => {
     expect(store.usersOf(others)).toEqual([]);
   });
 
-  it('saves every change for the next visit', () => {
-    store.setAmount(store.plan().debit[0], 9);
+  it('saves every change for the next visit, several at once only once', () => {
+    TestBed.tick();
+    const setItem = vi.spyOn(localStorage, 'setItem');
 
+    store.setAmount(store.plan().debit[0], 9);
+    store.setTitle(store.plan().debit[0], 'Essen');
+    TestBed.tick();
+
+    expect(setItem).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem('camp-plan')).toContain('"amount": 9');
+  });
+
+  it('hands out the plan as data that later changes leave alone', () => {
+    const data = store.data();
+
+    store.setRange(ContextType.DAYS, 'end', 9);
+
+    expect(data.days.end).toBe(3);
+    expect(store.data().days.end).toBe(9);
   });
 });

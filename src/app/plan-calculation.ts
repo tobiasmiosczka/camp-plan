@@ -2,7 +2,7 @@ import {computed, effect, inject, Injectable, linkedSignal, resource, signal} fr
 import {toObservable} from '@angular/core/rxjs-interop';
 import {filter, firstValueFrom, Observable} from 'rxjs';
 import {calculationKey, EngineResult} from './calculation/engine';
-import {Plan, planToJson} from './calculation/plan';
+import {Plan, PlanData} from './calculation/plan';
 import {Position} from './calculation/position';
 import {ScenarioResults} from './calculation/scenarios';
 import {CalculationRunner} from './calculation-runner';
@@ -17,7 +17,7 @@ export interface PlanResult {
 }
 
 interface Request {
-  json: string;
+  data: PlanData;
   perParticipant: boolean;
   /** Alle Zahlen des Plans ohne Titel und Namen; nur wenn er sich ändert, wird neu gerechnet. */
   key: string;
@@ -34,11 +34,9 @@ export class PlanCalculation {
   private readonly runner = inject(CalculationRunner);
 
   private readonly request = computed((): Request => {
-    // Das Modell wird an Ort und Stelle geändert; erst die Revision macht daraus eine neue Anfrage
-    this.store.revision();
-    const json: string = planToJson(this.store.plan());
+    const data: PlanData = this.store.data();
     const perParticipant: boolean = this.store.perParticipant();
-    return {json, perParticipant, key: calculationKey(json, perParticipant)};
+    return {data, perParticipant, key: calculationKey(data, perParticipant)};
   }, {equal: (a: Request, b: Request): boolean => a.key === b.key});
 
   private readonly resource = resource({
@@ -48,7 +46,7 @@ export class PlanCalculation {
       // Positionen oder Städten hätte eine neue Anfrage ausgelöst und diese hier abgebrochen.
       const plan: Plan = this.store.plan();
       const positions: Position[] = [...plan.debit, ...plan.credit];
-      const calculation: EngineResult = await this.runner.run(params.json, params.perParticipant, abortSignal);
+      const calculation: EngineResult = await this.runner.run(params.data, params.perParticipant, abortSignal);
       return {
         calculation,
         results: new ScenarioResults(calculation.scenarios, calculation.values, plan.contextRange),

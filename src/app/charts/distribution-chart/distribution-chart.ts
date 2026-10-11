@@ -69,25 +69,18 @@ export class DistributionChart {
     }
     const values: ArrayLike<number> = this.metric === 'balance' ? calculation.values
       : this.metric === 'debit' ? calculation.debitValues : calculation.creditValues;
-    const weights: Float64Array = results.weights;
     const total: number = results.scenarioCount;
-    let weightedSum: number = 0;
-    let deficit: number = 0;
-    for (let i = 0; i < values.length; i++) {
-      weightedSum += values[i] * weights[i];
-      deficit += values[i] < 0 ? weights[i] : 0;
-    }
-    const mean: number = weightedSum / total;
-    const result: Histogram = histogram(values, weights);
+    const mean: number = results.mean(values);
+    const result: Histogram = histogram(values, results.weights);
     const lower = (i: number): number => result.start + i * result.width;
 
     const primary: string = style.color('--mat-sys-primary');
     const error: string = style.color('--mat-sys-error');
-    const percent = (count: number): string =>
-      (count / total).toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
+    const share = (part: number): string => part.toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
+    const percent = (count: number): string => share(count / total);
     const facts: string[] = [`${total.toLocaleString('de')} Szenarien`, `Mittelwert ${formatEuro(mean)}`];
     if (this.metric === 'balance') {
-      facts.push(`Defizit in ${percent(deficit)} der Szenarien`);
+      facts.push(`Defizit in ${share(results.deficitShare())} der Szenarien`);
     }
     const line = (x: number, color: string, dash: 'dash' | 'dot') => ({
       type: 'line' as const, yref: 'paper' as const, x0: x, x1: x, y0: 0, y1: 1, line: {color, width: 1.5, dash},

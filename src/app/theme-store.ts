@@ -1,11 +1,13 @@
-import {Injectable, signal} from '@angular/core';
+import {inject, Injectable, signal} from '@angular/core';
+import {MediaMatcher} from '@angular/cdk/layout';
 
 @Injectable({providedIn: 'root'})
 export class ThemeStore {
 
   private static readonly STORAGE_KEY = 'camp-plan-theme';
 
-  private readonly system: MediaQueryList = matchMedia('(prefers-color-scheme: dark)');
+  /** Über die CDK: Ohne Browser (Tests, Server) liefert sie eine Abfrage, die nie zutrifft, statt zu scheitern. */
+  private readonly system: MediaQueryList = inject(MediaMatcher).matchMedia('(prefers-color-scheme: dark)');
   /** Ausdrückliche Wahl; null heißt: wie das Betriebssystem (Material-Design-Standard). */
   private choice: boolean | null = this.restore();
   private readonly darkSignal = signal<boolean>(this.choice ?? this.system.matches);
@@ -15,7 +17,8 @@ export class ThemeStore {
 
   constructor() {
     this.apply();
-    this.system.addEventListener('change', (): void => {
+    // addListener statt addEventListener: Nur das kennt auch die Ersatz-Abfrage der CDK
+    this.system.addListener((): void => {
       if (this.choice === null) {
         this.apply();
       }

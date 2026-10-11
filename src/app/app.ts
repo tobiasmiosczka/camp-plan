@@ -1,5 +1,6 @@
 import { Component, effect, ElementRef, HostListener, inject, signal, viewChild } from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { MediaMatcher } from '@angular/cdk/layout';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,7 +13,6 @@ import { RouterOutlet } from '@angular/router';
 import { PlanStore } from './plan-store';
 import { ThemeStore } from './theme-store';
 import { PdfExport } from './pdf-export';
-import { planToJson } from './calculation/plan';
 
 @Component({
   imports: [
@@ -33,6 +33,7 @@ export class App {
   /** Münzen, die gerade ins Sparschwein fallen; jeder Klick wirft eine weitere ein. */
   protected readonly coins = signal<number[]>([]);
   private nextCoin: number = 0;
+  private readonly reducedMotion: MediaQueryList = inject(MediaMatcher).matchMedia('(prefers-reduced-motion: reduce)');
 
   protected readonly perParticipant = this.store.perParticipant;
 
@@ -65,7 +66,7 @@ export class App {
   }
 
   protected dropCoin(): void {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (this.reducedMotion.matches) {
       return;
     }
     const coin: number = this.nextCoin++;
@@ -114,23 +115,23 @@ export class App {
   }
 
   protected reset(): void {
-    const previous = planToJson(this.store.plan());
+    const previous = this.store.data();
     this.store.reset();
     this.snackBar
       .open('Beispielplan geladen', 'Rückgängig', {duration: 5000})
       .onAction()
-      .subscribe((): void => this.store.load(previous));
+      .subscribe((): void => this.store.restore(previous));
   }
 
   protected resetAll(): void {
-    const previous = {plan: planToJson(this.store.plan()), perParticipant: this.perParticipant(), dark: this.dark()};
+    const previous = {plan: this.store.data(), perParticipant: this.perParticipant(), dark: this.dark()};
     this.store.clear();
     this.theme.reset();
     this.snackBar
       .open('Alle Einstellungen zurückgesetzt', 'Rückgängig', {duration: 8000})
       .onAction()
       .subscribe((): void => {
-        this.store.load(previous.plan);
+        this.store.restore(previous.plan);
         this.perParticipant.set(previous.perParticipant);
         this.theme.setDark(previous.dark);
       });

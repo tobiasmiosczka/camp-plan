@@ -4,7 +4,7 @@ import {MatInputModule} from '@angular/material/input';
 import {FormsModule} from '@angular/forms';
 import {City, ContextRange, ContextType, Position, Range} from '../calculation/position';
 import {Plan} from '../calculation/plan';
-import {PlanCalculation, PlanResult} from '../plan-calculation';
+import {PlanCalculation} from '../plan-calculation';
 import {PlanStore, RANGE_MIN} from '../plan-store';
 import {ThemeStore} from '../theme-store';
 import {MatCardModule} from '@angular/material/card';
@@ -167,7 +167,7 @@ export class AccountPanel {
       participants: this.scenarioCount() > 0 ? contextRange.get(ContextType.PARTICIPANTS) : ZERO_RANGE,
       cities: contextRange.getCities().map((city: City) => ({name: city.getName(), participants: city.getParticipants()})),
       scenarioCount: this.scenarioCount(),
-      deficitShare: this.deficitShare(this.result()),
+      deficitShare: this.result()?.results.deficitShare() ?? 0,
       debit: plan.debit.map(position),
       credit: plan.credit.map(position),
       debitTotal: this.debitTotal(),
@@ -176,18 +176,5 @@ export class AccountPanel {
       chart: await this.scenarioChart()?.printImage() ?? null,
       distribution: await this.distributionChart()?.printImage() ?? null,
     };
-  }
-
-  /** Anteil der Szenarien mit Defizit; zusammengefasste Szenarien zählen mit ihrem Gewicht. */
-  private deficitShare(result: PlanResult | null): number {
-    if (result === null || result.results.scenarioCount === 0) {
-      return 0;
-    }
-    const weights: Float64Array = result.results.weights;
-    let deficit: number = 0;
-    result.results.values.forEach((value: number, i: number): void => {
-      deficit += value < 0 ? weights[i] : 0;
-    });
-    return deficit / result.results.scenarioCount;
   }
 }

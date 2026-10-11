@@ -1,5 +1,7 @@
-import {Injectable, linkedSignal, signal} from '@angular/core';
-import {defaultPlan, emptyPlan, Plan, planFromJson, planToJson} from './calculation/plan';
+import {computed, effect, Injectable, linkedSignal, signal} from '@angular/core';
+import {
+  dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromData, planFromJson, planToData
+} from './calculation/plan';
 import {City, ContextType, GroupModifier, PerCityModifier, Position, PositionModifier, Range} from './calculation/position';
 
 /** Kontoseite einer Position. */
@@ -12,7 +14,7 @@ export const RANGE_MIN: Record<ContextType.DAYS | ContextType.LEADERS, number> =
 };
 
 /**
- * Hält den Plan und ist die einzige Stelle, die ihn verändert.
+ * Hält den Plan, ist die einzige Stelle, die ihn verändert, und speichert jede Änderung im Browser.
  *
  * Das Modell wird an Ort und Stelle geändert, damit Positionen und Städte ihre Identität behalten (Faktoren verweisen
  * auf Städte, Ergebnisse auf Positionen). Kein Signal bemerkt eine solche Änderung; deshalb zählt jede Methode hier
@@ -23,7 +25,7 @@ export class PlanStore {
 
   private static readonly STORAGE_KEY = 'camp-plan';
 
-  readonly plan = signal<Plan>(this.restore());
+  readonly plan = signal<Plan>(this.stored());
 
   private readonly revisionSignal = signal<number>(0);
   /** Zählt jede Änderung am geladenen Plan. */
@@ -41,6 +43,18 @@ export class PlanStore {
 
   /** Zeigt alle Beträge pro Teilnehmer statt als Gesamtsumme. */
   readonly perParticipant = signal<boolean>(false);
+
+  /** Der Plan als reine Daten, einmal je Änderung erzeugt: für Speicher, Datei und Rechnung. */
+  readonly data = computed((): PlanData => {
+    this.revision();
+    this.name();
+    return planToData(this.plan());
+  });
+
+  constructor() {
+    // Als Effekt: Mehrere Änderungen in einem Zug werden nur einmal gespeichert
+    effect((): void => this.save(this.data()));
+  }
 
   // Rahmenbedingungen und Städte
 
@@ -141,11 +155,10 @@ export class PlanStore {
   rename(name: string): void {
     this.plan().name = name;
     this.name.set(name);
-    this.autosave();
   }
 
   download(): void {
-    const blob = new Blob([planToJson(this.plan())], {type: 'application/json'});
+    const blob = new Blob([dataToJson(this.data())], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -160,29 +173,27 @@ export class PlanStore {
 
   load(json: string): void {
     this.plan.set(planFromJson(json));
-    this.autosave();
+  }
+
+  /** Lädt einen Stand aus {@link data} wieder, etwa um ein Zurücksetzen rückgängig zu machen. */
+  restore(data: PlanData): void {
+    this.plan.set(planFromData(data));
   }
 
   reset(): void {
     this.plan.set(defaultPlan());
-    this.autosave();
   }
 
-  /** Löscht den gespeicherten Stand, alle Positionen und Städte sowie die Ansichtseinstellungen. */
+  /** Ersetzt den Plan durch einen leeren und setzt die Ansichtseinstellungen zurück. */
   clear(): void {
-    try {
-      localStorage.removeItem(PlanStore.STORAGE_KEY);
-    } catch {
-      // Nichts gespeichert, nichts zu löschen.
-    }
     this.perParticipant.set(false);
     this.plan.set(emptyPlan());
   }
 
   /** Speichert den aktuellen Stand im Browser, damit er ein Neuladen übersteht. */
-  private autosave(): void {
+  private save(data: PlanData): void {
     try {
-      localStorage.setItem(PlanStore.STORAGE_KEY, planToJson(this.plan()));
+      localStorage.setItem(PlanStore.STORAGE_KEY, dataToJson(data));
     } catch {
       // Ohne Browser-Speicher (z. B. privater Modus) geht nur das automatische Zwischenspeichern verloren.
     }
@@ -206,10 +217,10 @@ export class PlanStore {
 
   private changed(): void {
     this.revisionSignal.update((revision: number): number => revision + 1);
-    this.autosave();
   }
 
-  private restore(): Plan {
+  /** Der Stand vom letzten Besuch, sonst der Beispielplan. */
+  private stored(): Plan {
     try {
       const json = localStorage.getItem(PlanStore.STORAGE_KEY);
       if (json) {

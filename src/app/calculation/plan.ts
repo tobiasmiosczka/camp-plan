@@ -28,8 +28,11 @@ interface CityData {
   others?: boolean;
 }
 
-/** Version 1 kannte nur eine Teilnehmerspanne ohne Städte und wird beim Öffnen noch gelesen. */
-interface PlanData {
+/**
+ * Der Plan als reine Daten, wie er gespeichert wird. Ohne Klassen und Objekt-Identität: lässt sich als JSON speichern
+ * und an den Web Worker schicken. Version 1 kannte nur eine Teilnehmerspanne ohne Städte und wird noch gelesen.
+ */
+export interface PlanData {
   version: 2;
   /** Seit dem Projektnamen; ältere Dateien haben keinen. */
   name?: string;
@@ -88,19 +91,27 @@ export function emptyPlan(): Plan {
   };
 }
 
-export function planToJson(plan: Plan): string {
+/** Bereiche werden kopiert: Die Daten bleiben gleich, auch wenn der Plan danach geändert wird. */
+export function planToData(plan: Plan): PlanData {
   const cities: City[] = plan.contextRange.getCities();
-  const data: PlanData = {
+  return {
     version: 2,
     name: plan.name,
-    days: plan.contextRange.get(ContextType.DAYS),
-    leaders: plan.contextRange.get(ContextType.LEADERS),
+    days: {...plan.contextRange.get(ContextType.DAYS)},
+    leaders: {...plan.contextRange.get(ContextType.LEADERS)},
     cities: cities.map((city: City): CityData => city.isOthers()
-      ? {name: city.getName(), participants: city.getParticipants(), others: true}
-      : {name: city.getName(), participants: city.getParticipants()}),
+      ? {name: city.getName(), participants: {...city.getParticipants()}, others: true}
+      : {name: city.getName(), participants: {...city.getParticipants()}}),
     debit: plan.debit.map((position: Position): PositionData => positionToData(position, cities)),
     credit: plan.credit.map((position: Position): PositionData => positionToData(position, cities)),
   };
+}
+
+export function planToJson(plan: Plan): string {
+  return dataToJson(planToData(plan));
+}
+
+export function dataToJson(data: PlanData): string {
   return JSON.stringify(data, null, 2);
 }
 
@@ -111,6 +122,11 @@ export function planFromJson(json: string): Plan {
   } catch {
     throw new Error('Die Datei ist kein gültiges JSON.');
   }
+  return planFromData(data);
+}
+
+/** Prüft die Daten, bevor daraus ein Plan wird: Sie können aus einer beliebigen Datei stammen. */
+export function planFromData(data: unknown): Plan {
   if (!isObject(data) || (data['version'] !== 1 && data['version'] !== 2)) {
     throw new Error('Die Datei ist kein CampPlan-Plan oder hat eine unbekannte Version.');
   }
