@@ -1,8 +1,8 @@
-import {Component, Input, OnChanges} from '@angular/core';
+import {Component, effect, input, untracked} from '@angular/core';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatCardModule} from '@angular/material/card';
 import {PlotlyModule} from 'angular-plotly.js';
-import {Calculation} from '../../calculation/calculator';
+import {EngineResult} from '../../calculation/engine';
 import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios';
 import {formatEuro, ReportChart} from '../../pdf-export';
 import {ChartStyle, Figure, NO_SCENARIOS, reportChart} from '../chart-style';
@@ -18,27 +18,29 @@ const METRIC_LABELS: Record<Metric, string> = {balance: 'Überschuss', debit: 'A
   templateUrl: './distribution-chart.html',
   styleUrl: './distribution-chart.css',
 })
-export class DistributionChart implements OnChanges {
+export class DistributionChart {
 
-  @Input({required: true})
-  results!: ScenarioResults;
+  readonly results = input.required<ScenarioResults>();
 
-  @Input({required: true})
-  calculation!: Calculation;
+  readonly calculation = input.required<EngineResult>();
 
-  @Input()
-  perParticipant: boolean = false;
+  readonly perParticipant = input<boolean>(false);
 
-  /** Wird bei jeder Rechnung erhöht, damit auch ein Theme-Wechsel neu zeichnet. */
-  @Input()
-  version: number = 0;
+  /** Ein neuer Wert zeichnet neu, auch ohne neues Ergebnis, z. B. nach einem Theme-Wechsel. */
+  readonly version = input<unknown>();
 
   protected metric: Metric = 'balance';
   protected graph: Figure = {data: [], layout: {}, title: '', subtitle: ''};
   protected revision: number = 0;
 
-  ngOnChanges(): void {
-    this.render();
+  constructor() {
+    effect((): void => {
+      this.results();
+      this.calculation();
+      this.perParticipant();
+      this.version();
+      untracked((): void => this.render());
+    });
   }
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
@@ -58,15 +60,17 @@ export class DistributionChart implements OnChanges {
   }
 
   private figure(style: ChartStyle): Figure {
-    const label: string = METRIC_LABELS[this.metric] + (this.perParticipant ? ' pro Teilnehmer' : '');
+    const label: string = METRIC_LABELS[this.metric] + (this.perParticipant() ? ' pro Teilnehmer' : '');
     const title: string = `Verteilung der Szenarien: ${label}`;
-    if (this.results.isEmpty()) {
+    const results: ScenarioResults = this.results();
+    const calculation: EngineResult = this.calculation();
+    if (results.isEmpty()) {
       return {data: [], layout: style.base(), title, subtitle: NO_SCENARIOS};
     }
-    const values: ArrayLike<number> = this.metric === 'balance' ? this.calculation.values
-      : this.metric === 'debit' ? this.calculation.debitValues : this.calculation.creditValues;
-    const weights: Float64Array = this.results.weights;
-    const total: number = this.results.scenarioCount;
+    const values: ArrayLike<number> = this.metric === 'balance' ? calculation.values
+      : this.metric === 'debit' ? calculation.debitValues : calculation.creditValues;
+    const weights: Float64Array = results.weights;
+    const total: number = results.scenarioCount;
     let weightedSum: number = 0;
     let deficit: number = 0;
     for (let i = 0; i < values.length; i++) {

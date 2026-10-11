@@ -116,6 +116,8 @@ mat-card-content {
   gap: 4px;
   height: 100%;
   box-sizing: border-box;
+  /* Der Betrag richtet seine Schriftgröße nach der Kartenbreite */
+  container-type: inline-size;
 }
 
 /* Die zentrale Kennzahl als tonale Karte (M3: Hervorhebung über Farbrollen statt über Rahmen) */
@@ -134,13 +136,49 @@ mat-card-content {
   font: var(--mat-sys-title-medium);
 }
 
+/* Immer einzeilig, sonst wäre die Karte je nach Betrag unterschiedlich hoch; in schmalen Karten wird die Schrift kleiner */
 .summary-value {
   font: var(--mat-sys-headline-medium);
+  font-size: min(var(--mat-sys-headline-medium-size), 7.5cqi);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .summary-scenarios {
   font: var(--mat-sys-body-medium);
+}
+
+.summary-value-skeleton {
+  width: 14em;
+}
+
+.chart-title-skeleton {
+  width: 16em;
+}
+
+/* So hoch wie Auswahl plus Diagramm, damit die Seite nicht springt, wenn es erscheint */
+.chart-skeleton {
+  margin-top: 16px;
+}
+
+.chart .chart-skeleton {
+  height: 712px;
+}
+
+.distribution .chart-skeleton {
+  height: 484px;
+}
+
+@media (max-width: 599px) {
+  .chart .chart-skeleton {
+    height: 492px;
+  }
+
+  .distribution .chart-skeleton {
+    height: 384px;
+  }
 }
 
 .summary-hint {
@@ -148,6 +186,11 @@ mat-card-content {
   align-items: center;
   gap: 8px;
   font: var(--mat-sys-body-medium);
+}
+
+/* Platz gehalten, aber unsichtbar (auch für Screenreader), solange es kein Defizit gibt */
+.summary-hint.reserved {
+  visibility: hidden;
 }
 
 /* T-Konto: Ausgaben links, Einnahmen rechts; ab schmaler Breite untereinander */

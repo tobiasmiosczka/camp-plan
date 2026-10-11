@@ -19,8 +19,53 @@
       href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0..1,0&display=block"
       rel="stylesheet"
     />
+    <style>
+      /* Startbildschirm, bis Angular die App rendert und ihn ersetzt; Aufbau wie die App, Skelette aus styles.css */
+      .boot-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 64px;
+        padding: 0 16px;
+        background: var(--mat-sys-surface-container);
+        color: var(--mat-sys-on-surface);
+        font: var(--mat-sys-title-large);
+      }
+      .boot-page {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+        max-width: 1920px;
+        margin: 0 auto;
+        padding: 24px;
+        color: var(--mat-sys-on-surface);
+      }
+      .boot-page .skeleton { height: 120px; }
+      .boot-page .boot-tall { height: 280px; }
+      .boot-page .boot-wide { height: 480px; }
+      @media (max-width: 599px) {
+        .boot-page { gap: 16px; padding: 16px; }
+      }
+      @media (min-width: 1000px) {
+        .boot-page { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .boot-page .boot-span-2 { grid-column: span 2; }
+        .boot-page .boot-wide { grid-column: 1 / -1; }
+      }
+    </style>
   </head>
   <body>
-    <app-root></app-root>
+    <app-root>
+      <div aria-busy="true">
+        <div class="boot-bar">CampPlan</div>
+        <div class="boot-page">
+          <span class="skeleton skeleton-block boot-span-2"></span>
+          <span class="skeleton skeleton-block"></span>
+          <span class="skeleton skeleton-block boot-tall"></span>
+          <span class="skeleton skeleton-block boot-tall boot-span-2"></span>
+          <span class="skeleton skeleton-block boot-wide"></span>
+        </div>
+        <span class="visually-hidden">CampPlan wird geladen …</span>
+      </div>
+    </app-root>
   </body>
 </html>

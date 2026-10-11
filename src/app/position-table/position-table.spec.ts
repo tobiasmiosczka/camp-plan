@@ -1,17 +1,26 @@
+import { CurrencyPipe, registerLocaleData } from '@angular/common';
+import localeDe from '@angular/common/locales/de';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PositionTableComponent } from './position-table';
+import { City, Position } from '../calculation/position';
 
 describe('PositionTable', () => {
   let component: PositionTableComponent;
   let fixture: ComponentFixture<PositionTableComponent>;
 
   beforeEach(async () => {
+    registerLocaleData(localeDe);
     await TestBed.configureTestingModule({
       imports: [PositionTableComponent],
+      providers: [CurrencyPipe],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PositionTableComponent);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('side', 'debit');
+    fixture.componentRef.setInput('positions', [new Position('Bus', 1485)]);
+    fixture.componentRef.setInput('sums', new Map());
+    fixture.componentRef.setInput('cities', [City.others()]);
     await fixture.whenStable();
   });
 

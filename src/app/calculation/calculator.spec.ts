@@ -1,10 +1,10 @@
-import {Calculator} from './calculator';
+import {calculate} from './calculator';
 import {
   City, ContextRange, ContextType, PER_DAY, PER_LEADER, PER_NIGHT, PER_PARTICIPANT, PER_PERSON, PerCityModifier,
   PerParticipantGroup, Position, Range
 } from './position';
 
-describe('Calculator', () => {
+describe('calculate', () => {
   const a = new City('A', {start: 0, end: 3});
   const b = new City('B', {start: 1, end: 2});
   const contextRange = new ContextRange(new Map<ContextType, Range>([
@@ -25,7 +25,7 @@ describe('Calculator', () => {
 
   for (const perParticipant of [false, true]) {
     it(`matches summing every position in every scenario (pro Teilnehmer: ${perParticipant})`, () => {
-      const result = new Calculator().calculate(contexts, contextRange, debit, credit, perParticipant);
+      const result = calculate(contexts, contextRange, debit, credit, perParticipant);
       const sum = (positions: Position[], i: number): number => positions.reduce((total, position) =>
         total + position.getSum(contexts[i]) / (perParticipant ? contexts[i].get(ContextType.PARTICIPANTS) : 1), 0);
 
@@ -45,18 +45,4 @@ describe('Calculator', () => {
       expect(result.debitTotal.max).toBeCloseTo(Math.max(...debits), 9);
     });
   }
-
-  it('reuses the result until a number changes, but not for renaming', () => {
-    const calculator = new Calculator();
-    const first = calculator.calculate(contexts, contextRange, debit, credit, false);
-
-    debit[1].setTitle('Turnhalle');
-    a.setName('Stadt A');
-    expect(calculator.calculate(contexts, contextRange, debit, credit, false)).toBe(first);
-
-    debit[1].setAmount(350);
-    const second = calculator.calculate(contexts, contextRange, debit, credit, false);
-    expect(second).not.toBe(first);
-    expect(second.debitTotal.min).toBe(first.debitTotal.min + 50);
-  });
 });

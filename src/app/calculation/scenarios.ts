@@ -19,39 +19,29 @@ export function groupKey(parts: number[]): number {
   return parts.reduce((key: number, part: number): number => key * 100_000 + part, 0);
 }
 
-/**
- * Hält die zuletzt erzeugten Szenarien vor. Neu erzeugt wird nur, wenn sich Tage, Leiter, Städte oder die
- * einzeln aufgezählten Städte geändert haben – Änderungen an Positionen allein brauchen keine neuen Szenarien.
- */
-export class ScenarioCache {
+/** Szenarien als Spalten statt als Objekte: lässt sich ohne Kopie aus dem Web Worker übergeben. */
+export interface ScenarioColumns {
+  /** Index der einzeln aufgezählten Städte in der Städteliste des Plans. */
+  relevant: number[];
+  participants: Int32Array;
+  leaders: Int32Array;
+  days: Int32Array;
+  /** Teilnehmer je einzeln aufgezählter Stadt, in der Reihenfolge von `relevant`. */
+  cities: Int32Array[];
+}
 
-  private readonly ids = new WeakMap<City, number>();
-  private nextId: number = 0;
-  private signature: string = '';
-  private contexts: Context[] = [];
-
-  getContexts(contextRange: ContextRange, relevant: City[]): Context[] {
-    const signature: string = JSON.stringify([
-      contextRange.get(ContextType.LEADERS),
-      contextRange.get(ContextType.DAYS),
-      // Die Szenarien merken sich Städte als Objekte; eine gleich große, aber neue Stadt braucht neue Szenarien
-      contextRange.getCities().map((city: City) => [this.id(city), city.getParticipants(), relevant.includes(city)]),
-    ]);
-    if (signature !== this.signature) {
-      this.signature = signature;
-      this.contexts = contextRange.getPermutations(relevant);
-    }
-    return this.contexts;
-  }
-
-  private id(city: City): number {
-    let id: number | undefined = this.ids.get(city);
-    if (id === undefined) {
-      id = this.nextId++;
-      this.ids.set(city, id);
-    }
-    return id;
-  }
+export function toColumns(contexts: Context[], cities: City[], relevant: City[]): ScenarioColumns {
+  const indices: number[] = cities
+    .map((city: City, i: number): number => relevant.includes(city) ? i : -1)
+    .filter((i: number): boolean => i >= 0);
+  return {
+    relevant: indices,
+    participants: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.PARTICIPANTS)),
+    leaders: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.LEADERS)),
+    days: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.DAYS)),
+    cities: indices.map((i: number): Int32Array =>
+      Int32Array.from(contexts, (context: Context): number => context.getParticipantsFrom(cities[i]))),
+  };
 }
 
 /**
@@ -64,6 +54,7 @@ export class ScenarioCache {
 export class ScenarioResults {
 
   private readonly ranges = new Map<City, Range>();
+  private readonly relevant: City[];
   private readonly participants: Range;
   private readonly leaders: Range;
   private readonly days: Range;
@@ -74,16 +65,18 @@ export class ScenarioResults {
   /** Anzahl aller echten Szenarien, als hätte man jede Stadt einzeln aufgezählt. */
   readonly scenarioCount: number;
 
-  constructor(readonly contexts: Context[], readonly values: number[], contextRange: ContextRange,
-              private readonly relevant: City[]) {
-    for (const city of contextRange.getCities()) {
+  /** Die Städte in `scenarios.relevant` werden über ihren Index in `contextRange` aufgelöst. */
+  constructor(readonly scenarios: ScenarioColumns, readonly values: Float64Array, contextRange: ContextRange) {
+    const cities: City[] = contextRange.getCities();
+    for (const city of cities) {
       this.ranges.set(city, {...city.getParticipants()});
     }
+    this.relevant = scenarios.relevant.map((i: number): City => cities[i]);
     this.participants = {...contextRange.get(ContextType.PARTICIPANTS)};
     this.leaders = {...contextRange.get(ContextType.LEADERS)};
     this.days = {...contextRange.get(ContextType.DAYS)};
-    this.rest = Int32Array.from(contexts, (context: Context): number => relevant.reduce(
-      (rest: number, city: City): number => rest - context.getParticipantsFrom(city), context.get(ContextType.PARTICIPANTS)));
+    this.rest = scenarios.participants.map((participants: number, i: number): number => scenarios.cities.reduce(
+      (rest: number, column: Int32Array): number => rest - column[i], participants));
 
     const [restStart, ways] = this.distributions();
     this.weights = Float64Array.from(this.rest, (rest: number): number => ways[rest - restStart] ?? 0);
@@ -114,8 +107,13 @@ export class ScenarioResults {
     return [start, ways];
   }
 
+  /** Anzahl der berechneten Szenarien; zusammengefasste zählen einfach. */
+  public get size(): number {
+    return this.values.length;
+  }
+
   public isEmpty(): boolean {
-    return this.contexts.length === 0;
+    return this.values.length === 0;
   }
 
   public hasCity(city: City): boolean {
@@ -155,6 +153,8 @@ export class ScenarioResults {
     });
     const candidates: number[][] = dimensions.map((dimension: Dimension): number[] =>
       collapsed(dimension) ? this.domain(dimension) : []);
+    const columns: (Int32Array | null)[] = dimensions.map((dimension: Dimension): Int32Array | null =>
+      collapsed(dimension) ? null : this.column(dimension));
 
     const add = (key: number, value: number): void => {
       const group: ValueRange | undefined = groups.get(key);
@@ -179,17 +179,28 @@ export class ScenarioResults {
           visit(i, depth + 1, [...parts, value], taken + value);
         }
       } else {
-        visit(i, depth + 1, [...parts, this.valueOf(this.contexts[i], dimension)], taken);
+        visit(i, depth + 1, [...parts, columns[depth]![i]], taken);
       }
     };
-    for (let i = 0; i < this.contexts.length; i++) {
+    for (let i = 0; i < this.values.length; i++) {
       visit(i, 0, [], 0);
     }
     return groups;
   }
 
-  private valueOf(context: Context, dimension: Dimension): number {
-    return dimension.kind === 'city' ? context.getParticipantsFrom(dimension.city) : context.get(dimension.type);
+  /** Wert der Dimension je Szenario; nur für Städte, die einzeln aufgezählt wurden. */
+  private column(dimension: Dimension): Int32Array {
+    if (dimension.kind === 'city') {
+      return this.scenarios.cities[this.relevant.indexOf(dimension.city)];
+    }
+    switch (dimension.type) {
+      case ContextType.PARTICIPANTS:
+        return this.scenarios.participants;
+      case ContextType.LEADERS:
+        return this.scenarios.leaders;
+      case ContextType.DAYS:
+        return this.scenarios.days;
+    }
   }
 }
 

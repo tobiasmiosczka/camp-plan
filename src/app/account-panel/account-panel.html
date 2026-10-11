@@ -9,17 +9,30 @@
     </mat-card-content>
   </mat-card>
 
-  <mat-card appearance="outlined" class="summary" [class.negative]="balance.min < 0">
+  <mat-card appearance="outlined" class="summary" [class.negative]="!loading() && balance().min < 0"
+            [attr.aria-busy]="loading()">
     <mat-card-content>
-      <div class="summary-label">Überschuss {{ perParticipant ? 'pro Teilnehmer' : 'gesamt' }}</div>
-      <div class="summary-value">{{ balance | currencyRange }}</div>
-      <div class="summary-scenarios">{{ scenarioCount.toLocaleString('de') }} Szenarien</div>
-      @if (balance.min < 0) {
-        <div class="summary-hint">
-          <mat-icon aria-hidden="true">warning</mat-icon>
-          In mindestens einem Szenario entsteht ein Defizit.
-        </div>
-      }
+      <div class="summary-label">Überschuss {{ perParticipant() ? 'pro Teilnehmer' : 'gesamt' }}</div>
+      <!-- Jede Zeile steht immer da, ob geladen wird oder nicht: Die Karte behält ihre Höhe und nichts verrutscht -->
+      <div class="summary-value">
+        @if (loading()) {
+          <span class="skeleton summary-value-skeleton"></span>
+          <span class="visually-hidden">Wird berechnet …</span>
+        } @else {
+          {{ balance() | currencyRange }}
+        }
+      </div>
+      <div class="summary-scenarios">
+        @if (loading()) {
+          <span class="skeleton"></span>
+        } @else {
+          {{ scenarioCount().toLocaleString('de') }} Szenarien
+        }
+      </div>
+      <div class="summary-hint" [class.reserved]="loading() || balance().min >= 0">
+        <mat-icon aria-hidden="true">warning</mat-icon>
+        In mindestens einem Szenario entsteht ein Defizit.
+      </div>
     </mat-card-content>
   </mat-card>
 
@@ -39,13 +52,13 @@
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>von</mat-label>
               <input matInput type="number" [min]="row.min" step="1"
-                     [ngModel]="contextRange.get(row.type).start"
+                     [ngModel]="contextRange().get(row.type).start"
                      (ngModelChange)="setRange(row.type, 'start', $event)"/>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>bis</mat-label>
-              <input matInput type="number" [min]="contextRange.get(row.type).start" step="1"
-                     [ngModel]="contextRange.get(row.type).end"
+              <input matInput type="number" [min]="contextRange().get(row.type).start" step="1"
+                     [ngModel]="contextRange().get(row.type).end"
                      (ngModelChange)="setRange(row.type, 'end', $event)"/>
             </mat-form-field>
           </fieldset>
@@ -63,7 +76,7 @@
     </mat-card-header>
     <mat-card-content>
       <div class="city-list">
-        @for (city of contextRange.getCities(); track city) {
+        @for (city of contextRange().getCities(); track city) {
           <div class="city">
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-name">
               <mat-label>Stadt</mat-label>
@@ -110,29 +123,61 @@
         </h2>
 
         <div class="t-body debit">
-          <app-position-table [positions]="debit" [sums]="positionSums" [cities]="contextRange.getCities()"
-                              [perParticipant]="perParticipant" (changed)="compute()"></app-position-table>
+          <app-position-table side="debit" [positions]="plan().debit" [sums]="positionSums()"
+                              [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                              [loading]="loading()"></app-position-table>
         </div>
         <div class="t-body credit">
-          <app-position-table [positions]="credit" [sums]="positionSums" [cities]="contextRange.getCities()"
-                              [perParticipant]="perParticipant" (changed)="compute()"></app-position-table>
+          <app-position-table side="credit" [positions]="plan().credit" [sums]="positionSums()"
+                              [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                              [loading]="loading()"></app-position-table>
         </div>
 
         <div class="t-total debit">
           <span>Summe Ausgaben</span>
-          <span class="t-total-value">{{ debitTotal | currencyRange }}</span>
+          <span class="t-total-value">
+            @if (loading()) {
+              <span class="skeleton"></span>
+            } @else {
+              {{ debitTotal() | currencyRange }}
+            }
+          </span>
         </div>
         <div class="t-total credit">
           <span>Summe Einnahmen</span>
-          <span class="t-total-value">{{ creditTotal | currencyRange }}</span>
+          <span class="t-total-value">
+            @if (loading()) {
+              <span class="skeleton"></span>
+            } @else {
+              {{ creditTotal() | currencyRange }}
+            }
+          </span>
         </div>
       </div>
     </mat-card-content>
   </mat-card>
 
-  <app-scenario-chart class="chart" [results]="results" [cities]="contextRange.getCities()"
-                      [perParticipant]="perParticipant" [version]="version"></app-scenario-chart>
+  @if (result(); as result) {
+    <!-- Während einer neuen Rechnung bleiben die Diagramme stehen und werden nur abgedeckt: Plotly neu aufzubauen dauert -->
+    <app-scenario-chart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
+                        [results]="result.results" [cities]="contextRange().getCities()"
+                        [perParticipant]="perParticipant()" [version]="redraw()"></app-scenario-chart>
 
-  <app-distribution-chart class="distribution" [results]="results" [calculation]="calculation"
-                          [perParticipant]="perParticipant" [version]="version"></app-distribution-chart>
+    <app-distribution-chart class="distribution" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
+                            [results]="result.results" [calculation]="result.calculation"
+                            [perParticipant]="perParticipant()" [version]="redraw()"></app-distribution-chart>
+  } @else {
+    @for (area of ['chart', 'distribution']; track area) {
+      <mat-card appearance="outlined" [class]="area" aria-busy="true">
+        <mat-card-header>
+          <mat-card-title><span class="skeleton chart-title-skeleton"></span></mat-card-title>
+          <mat-card-subtitle><span class="skeleton"></span></mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <span class="skeleton skeleton-block chart-skeleton"></span>
+          <span class="visually-hidden">Diagramm wird berechnet …</span>
+        </mat-card-content>
+      </mat-card>
+    }
+  }
 </div>

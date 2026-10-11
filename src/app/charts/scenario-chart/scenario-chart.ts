@@ -1,4 +1,4 @@
-import {Component, Input, OnChanges} from '@angular/core';
+import {Component, effect, input, untracked} from '@angular/core';
 import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
@@ -30,20 +30,16 @@ interface DimensionOption {
   templateUrl: './scenario-chart.html',
   styleUrl: './scenario-chart.css',
 })
-export class ScenarioChart implements OnChanges {
+export class ScenarioChart {
 
-  @Input({required: true})
-  results!: ScenarioResults;
+  readonly results = input.required<ScenarioResults>();
 
-  @Input({required: true})
-  cities: City[] = [];
+  readonly cities = input.required<City[]>();
 
-  @Input()
-  perParticipant: boolean = false;
+  readonly perParticipant = input<boolean>(false);
 
-  /** Wird bei jeder Rechnung erhöht: Städte und Theme ändern sich, ohne dass sich die Eingaben selbst ändern. */
-  @Input()
-  version: number = 0;
+  /** Ein neuer Wert zeichnet neu: Stadtnamen und Theme ändern sich, ohne dass sich die Eingaben selbst ändern. */
+  readonly version = input<unknown>();
 
   protected graph: Figure = {data: [], layout: {}, title: '', subtitle: ''};
   protected revision: number = 0;
@@ -55,9 +51,17 @@ export class ScenarioChart implements OnChanges {
   protected readonly compareDimension = (a: Dimension | 'none' | null, b: Dimension | 'none' | null): boolean =>
     typeof a === 'object' && typeof b === 'object' ? sameDimension(a, b) : a === b;
 
-  ngOnChanges(): void {
-    this.updateDimensions();
-    this.render();
+  constructor() {
+    effect((): void => {
+      this.results();
+      this.cities();
+      this.perParticipant();
+      this.version();
+      untracked((): void => {
+        this.updateDimensions();
+        this.render();
+      });
+    });
   }
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
@@ -86,10 +90,10 @@ export class ScenarioChart implements OnChanges {
   private updateDimensions(): void {
     const types: DimensionOption[] = [ContextType.PARTICIPANTS, ContextType.LEADERS, ContextType.DAYS]
       .map((type: ContextType): DimensionOption => ({label: DIMENSION_LABELS[type], dimension: {kind: 'type', type}, varies: false}));
-    const cities: DimensionOption[] = this.cities
+    const cities: DimensionOption[] = this.cities()
       .map((city: City): DimensionOption => ({label: `Teilnehmer aus ${city.getName()}`, dimension: {kind: 'city', city}, varies: false}));
     this.dimensionOptions = [...types, ...cities].map((option: DimensionOption): DimensionOption =>
-      ({...option, varies: this.results.domain(option.dimension).length > 1}));
+      ({...option, varies: this.results().domain(option.dimension).length > 1}));
 
     const known = (dimension: Dimension | null): boolean => this.dimensionOptions
       .some((option: DimensionOption): boolean => sameDimension(option.dimension, dimension));
@@ -97,7 +101,7 @@ export class ScenarioChart implements OnChanges {
       // Standard: Teilnehmer und Leiter, sofern sie variieren, sonst die Tage
       const varying: Dimension[] = types
         .slice(0, 2)
-        .filter((option: DimensionOption): boolean => this.results.domain(option.dimension).length > 1)
+        .filter((option: DimensionOption): boolean => this.results().domain(option.dimension).length > 1)
         .map((option: DimensionOption): Dimension => option.dimension);
       this.xDimension = varying[0] ?? types[2].dimension;
       this.yDimension = varying[1] ?? null;
@@ -112,17 +116,17 @@ export class ScenarioChart implements OnChanges {
   }
 
   private figure(style: ChartStyle): Figure {
-    const valueLabel: string = this.perParticipant ? 'Überschuss pro Teilnehmer' : 'Überschuss';
-    if (this.results.isEmpty()) {
+    const valueLabel: string = this.perParticipant() ? 'Überschuss pro Teilnehmer' : 'Überschuss';
+    if (this.results().isEmpty()) {
       return {data: [], layout: style.base(), title: valueLabel, subtitle: NO_SCENARIOS};
     }
     // Achsen mit nur einem Wert tragen nichts zum Vergleich bei
     const selected: Dimension[] = [this.xDimension, this.yDimension]
       .filter((dimension: Dimension | null): dimension is Dimension => dimension !== null);
     const varying: Dimension[] = selected
-      .filter((dimension: Dimension): boolean => this.results.domain(dimension).length > 1);
+      .filter((dimension: Dimension): boolean => this.results().domain(dimension).length > 1);
     const shown: Dimension[] = varying.length > 0 ? varying : selected.slice(0, 1);
-    const groups: Map<number, ValueRange> = this.results.aggregate(shown);
+    const groups: Map<number, ValueRange> = this.results().aggregate(shown);
     const hasBand: boolean = [...groups.values()].some((group: ValueRange): boolean => group.min !== group.max);
     const title: string = `${valueLabel}: ${shown.map((dimension: Dimension): string => this.dimensionLabel(dimension)).join(' × ')}`;
 
@@ -135,7 +139,7 @@ export class ScenarioChart implements OnChanges {
           : 'Flache Ebene = 0 €',
       };
     }
-    const chart = this.results.domain(shown[0]).length > 8
+    const chart = this.results().domain(shown[0]).length > 8
       ? this.line(style, shown[0], groups, valueLabel, hasBand)
       : this.bars(style, shown[0], groups, valueLabel, hasBand);
     return {...chart, title, subtitle: hasBand ? 'Spanne von Minimum bis Maximum über alle übrigen Größen' : ''};
@@ -143,8 +147,8 @@ export class ScenarioChart implements OnChanges {
 
   private surface(style: ChartStyle, x: Dimension, y: Dimension, groups: Map<number, ValueRange>, valueLabel: string,
                   hasBand: boolean): Pick<Figure, 'data' | 'layout'> {
-    const xValues: number[] = this.results.domain(x);
-    const yValues: number[] = this.results.domain(y);
+    const xValues: number[] = this.results().domain(x);
+    const yValues: number[] = this.results().domain(y);
     const xLabel: string = this.dimensionLabel(x);
     const yLabel: string = this.dimensionLabel(y);
     const z = (pick: (r: ValueRange) => number): (number | null)[][] => yValues.map((yValue: number): (number | null)[] =>
@@ -230,7 +234,7 @@ export class ScenarioChart implements OnChanges {
 
   private line(style: ChartStyle, axis: Dimension, groups: Map<number, ValueRange>, valueLabel: string,
                hasBand: boolean): Pick<Figure, 'data' | 'layout'> {
-    const xValues: number[] = this.results.domain(axis);
+    const xValues: number[] = this.results().domain(axis);
     const mins: (number | null)[] = xValues.map((x: number): number | null => groups.get(x)?.min ?? null);
     const maxs: (number | null)[] = xValues.map((x: number): number | null => groups.get(x)?.max ?? null);
     const primary: string = style.color('--mat-sys-primary');
@@ -273,7 +277,7 @@ export class ScenarioChart implements OnChanges {
 
   private bars(style: ChartStyle, axis: Dimension, groups: Map<number, ValueRange>, valueLabel: string,
                hasBand: boolean): Pick<Figure, 'data' | 'layout'> {
-    const xValues: number[] = this.results.domain(axis);
+    const xValues: number[] = this.results().domain(axis);
     const categories: string[] = xValues.map((x: number): string => `${x}`);
     const mins: (number | null)[] = xValues.map((x: number): number | null => groups.get(x)?.min ?? null);
     const maxs: (number | null)[] = xValues.map((x: number): number | null => groups.get(x)?.max ?? null);

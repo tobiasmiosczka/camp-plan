@@ -1,1 +1,71 @@
 /* You can add global styles to this file, and also import other style files */
+
+/*
+ * Skelett-Platzhalter, solange gerechnet oder geladen wird. Die Farbe folgt dem Text, passt also auf jede Fläche
+ * (auch auf die tonale Überschuss-Karte) und auf helles wie dunkles Schema.
+ */
+.skeleton {
+  display: inline-block;
+  width: 8em;
+  max-width: 100%;
+  height: 0.8em;
+  border-radius: 4px;
+  vertical-align: middle;
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, currentColor 10%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.5s linear infinite;
+}
+
+.skeleton-block {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+}
+
+/* Inhalt mit veralteten Zahlen: bleibt stehen, wird aber abgedeckt, bis das neue Ergebnis da ist */
+.is-loading {
+  position: relative;
+}
+
+.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--mat-sys-surface) 60%, transparent);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.5s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .is-loading::after {
+    animation: none;
+  }
+}
+
+/* Für Screenreader lesbar, aber unsichtbar */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

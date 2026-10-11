@@ -1,5 +1,5 @@
 <div class="table-scroll">
-<table mat-table [dataSource]="positions">
+<table mat-table [dataSource]="rows()">
   <ng-container matColumnDef="position-name">
     <th mat-header-cell *matHeaderCellDef>Name</th>
     <td mat-cell *matCellDef="let element">
@@ -32,7 +32,7 @@
               pro Teilnehmer aus
               <select class="chip-select" aria-label="Stadt" (keydown)="$event.stopPropagation()"
                       [ngModel]="modifier.getCity()" (ngModelChange)="setCity(modifier, $event)">
-                @for (city of cities; track city) {
+                @for (city of cities(); track city) {
                   <option [ngValue]="city">{{ city.getName() }}</option>
                 }
               </select>
@@ -63,10 +63,14 @@
   </ng-container>
 
   <ng-container matColumnDef="position-sum">
-    <th mat-header-cell *matHeaderCellDef class="text-right">{{ perParticipant ? 'pro Teilnehmer' : 'Summe' }}</th>
+    <th mat-header-cell *matHeaderCellDef class="text-right">{{ perParticipant() ? 'pro Teilnehmer' : 'Summe' }}</th>
     <td mat-cell *matCellDef="let element" class="text-right sum">
-      <span class="compact-label">{{ perParticipant ? 'pro Teilnehmer' : 'Summe' }}</span>
-      {{ getSum(element) | currencyRange }}
+      <span class="compact-label">{{ perParticipant() ? 'pro Teilnehmer' : 'Summe' }}</span>
+      @if (loading()) {
+        <span class="skeleton"></span>
+      } @else {
+        {{ getSum(element) | currencyRange }}
+      }
     </td>
   </ng-container>
 

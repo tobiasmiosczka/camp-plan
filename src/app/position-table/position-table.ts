@@ -1,4 +1,4 @@
-import {Component, inject, Input, output, viewChild} from '@angular/core';
+import {Component, computed, inject, input} from '@angular/core';
 import {TextFieldModule} from '@angular/cdk/text-field';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
@@ -8,13 +8,14 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatMenuModule} from '@angular/material/menu';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {MatTable, MatTableModule} from '@angular/material/table';
+import {MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {
   City, GroupModifier, MODIFIER_OPTIONS, ModifierOption, PerCityModifier, Position, PositionModifier
 } from '../calculation/position';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {EuroInputDirective} from '../euro-input';
+import {PlanStore, Side} from '../plan-store';
 import {ValueRange} from '../value-range';
 
 @Component({
@@ -38,24 +39,32 @@ import {ValueRange} from '../value-range';
 })
 export class PositionTableComponent {
 
-  @Input({required: true})
-  positions: Position[] = [];
+  readonly side = input.required<Side>();
+
+  /** Die Liste des Plans; geändert wird sie nur über den {@link PlanStore}. */
+  readonly positions = input.required<Position[]>();
 
   /** Spanne je Position über alle Szenarien, vom Konto vorberechnet. */
-  @Input({required: true})
-  sums: Map<Position, ValueRange> = new Map<Position, ValueRange>();
+  readonly sums = input.required<Map<Position, ValueRange>>();
 
-  @Input({required: true})
-  cities: City[] = [];
+  readonly cities = input.required<City[]>();
 
-  @Input()
-  perParticipant: boolean = false;
+  readonly perParticipant = input<boolean>(false);
 
-  readonly changed = output<void>();
+  /** Statt veralteter Summen ein Skelett, solange gerechnet wird. */
+  readonly loading = input<boolean>(false);
 
-  private readonly table = viewChild.required(MatTable);
-
+  private readonly store = inject(PlanStore);
   private readonly snackBar = inject(MatSnackBar);
+
+  /**
+   * Eine neue Liste bei jeder Änderung: Die Tabelle zeichnet ihre Zeilen nur neu, wenn sich die Liste selbst ändert.
+   * Die Positionen bleiben dieselben Objekte, Eingabefelder behalten also den Fokus.
+   */
+  protected readonly rows = computed((): Position[] => {
+    this.store.revision();
+    return [...this.positions()];
+  });
 
   protected readonly modifierOptions: ModifierOption[] = MODIFIER_OPTIONS;
 
@@ -76,59 +85,45 @@ export class PositionTableComponent {
   }
 
   protected setCity(modifier: PerCityModifier, city: City): void {
-    modifier.setCity(city);
-    this.changed.emit();
+    this.store.setCity(modifier, city);
   }
 
   protected setTitle(position: Position, title: string): void {
-    position.setTitle(title);
-    this.changed.emit();
+    this.store.setTitle(position, title);
   }
 
   protected setAmount(position: Position, amount: number | null): void {
-    position.setAmount(amount ?? 0);
-    this.changed.emit();
+    this.store.setAmount(position, amount);
   }
 
   protected setGroupSize(modifier: GroupModifier, groupSize: number | null): void {
-    modifier.setGroupSize(groupSize ?? 0);
-    this.changed.emit();
+    this.store.setGroupSize(modifier, groupSize);
   }
 
   protected addModifier(position: Position, option: ModifierOption): void {
-    position.addModifier(option.create(this.cities));
-    this.changed.emit();
+    this.store.addModifier(position, option.create(this.cities()));
   }
 
   protected removeModifier(position: Position, modifier: PositionModifier): void {
-    position.removeModifier(modifier);
-    this.changed.emit();
+    this.store.removeModifier(position, modifier);
   }
 
   protected addPosition(): void {
-    this.positions.push(new Position('Neue Position', 0));
-    this.table().renderRows();
-    this.changed.emit();
+    this.store.addPosition(this.side());
   }
 
   protected removePosition(position: Position): void {
-    const index = this.positions.indexOf(position);
+    const side: Side = this.side();
+    const index: number = this.store.removePosition(side, position);
     if (index >= 0) {
-      this.positions.splice(index, 1);
-      this.table().renderRows();
-      this.changed.emit();
       this.snackBar
         .open(`„${position.getTitle()}“ gelöscht`, 'Rückgängig', {duration: 5000})
         .onAction()
-        .subscribe((): void => {
-          this.positions.splice(Math.min(index, this.positions.length), 0, position);
-          this.table().renderRows();
-          this.changed.emit();
-        });
+        .subscribe((): void => this.store.restorePosition(side, position, index));
     }
   }
 
   protected getSum(position: Position): ValueRange {
-    return this.sums.get(position) ?? {min: 0, max: 0};
+    return this.sums().get(position) ?? {min: 0, max: 0};
   }
 }

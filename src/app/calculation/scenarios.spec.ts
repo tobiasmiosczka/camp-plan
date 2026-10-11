@@ -1,5 +1,5 @@
 import {City, Context, ContextRange, ContextType, Range} from './position';
-import {Dimension, histogram, ScenarioCache, ScenarioResults} from './scenarios';
+import {Dimension, histogram, ScenarioResults, toColumns} from './scenarios';
 
 describe('ScenarioResults', () => {
   const a = new City('A', {start: 0, end: 2});
@@ -14,7 +14,8 @@ describe('ScenarioResults', () => {
     context.get(ContextType.PARTICIPANTS) * 100 + context.getParticipantsFrom(a) * 10 + context.get(ContextType.LEADERS);
   const results = (relevant: City[]): ScenarioResults => {
     const contexts = contextRange.getPermutations(relevant);
-    return new ScenarioResults(contexts, contexts.map(value), contextRange, relevant);
+    return new ScenarioResults(toColumns(contexts, contextRange.getCities(), relevant), Float64Array.from(contexts, value),
+      contextRange);
   };
   const full = results([a, b, c]);
   const merged = results([a]);
@@ -35,7 +36,7 @@ describe('ScenarioResults', () => {
   it('counts every real scenario, also those merged into one', () => {
     expect(full.weights.every(weight => weight === 1)).toBe(true);
     expect(merged.scenarioCount).toBe(full.scenarioCount);
-    expect(merged.contexts.length).toBeLessThan(full.contexts.length);
+    expect(merged.size).toBeLessThan(full.size);
   });
 
   it('builds the same histogram from merged scenarios as from all of them', () => {
@@ -64,25 +65,5 @@ describe('histogram', () => {
 
   it('handles a single value', () => {
     expect(histogram([7, 7], [1, 1]).counts).toEqual([2]);
-  });
-});
-
-describe('ScenarioCache', () => {
-  it('reuses scenarios until ranges or cities change', () => {
-    const city = new City('A', {start: 1, end: 2});
-    const contextRange = new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 1, end: 1}],
-      [ContextType.DAYS, {start: 1, end: 1}],
-    ]), [city]);
-    const cache = new ScenarioCache();
-
-    const first = cache.getContexts(contextRange, []);
-    expect(cache.getContexts(contextRange, [])).toBe(first);
-
-    city.getParticipants().end = 3;
-    const second = cache.getContexts(contextRange, []);
-    expect(second).not.toBe(first);
-    expect(second.length).toBe(3);
-    expect(cache.getContexts(contextRange, [city])).not.toBe(second);
   });
 });
