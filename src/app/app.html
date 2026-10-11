@@ -1,5 +1,11 @@
 <mat-toolbar class="top-app-bar">
-  <mat-icon aria-hidden="true">savings</mat-icon>
+  <!-- Easter Egg: Ein Klick aufs Sparschwein wirft eine Münze ein -->
+  <span class="logo" aria-hidden="true" (click)="dropCoin()">
+    @for (coin of coins(); track coin) {
+      <span class="coin" (animationend)="coinLanded(coin)"></span>
+    }
+    <mat-icon #piggyBank>savings</mat-icon>
+  </span>
   <span class="title">CampPlan</span>
   <span class="spacer"></span>
   <mat-slide-toggle class="per-participant" [checked]="perParticipant()" (change)="perParticipant.set($event.checked)">

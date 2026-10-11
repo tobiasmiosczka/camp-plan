@@ -28,6 +28,11 @@ export class App {
   private readonly store = inject(PlanStore);
   private readonly snackBar = inject(MatSnackBar);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly piggyBank = viewChild.required('piggyBank', {read: ElementRef<HTMLElement>});
+
+  /** Münzen, die gerade ins Sparschwein fallen; jeder Klick wirft eine weitere ein. */
+  protected readonly coins = signal<number[]>([]);
+  private nextCoin: number = 0;
 
   protected readonly perParticipant = this.store.perParticipant;
 
@@ -57,6 +62,26 @@ export class App {
       event.preventDefault();
       this.fileInput().nativeElement.click();
     }
+  }
+
+  protected dropCoin(): void {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+    const coin: number = this.nextCoin++;
+    this.coins.update((coins: number[]): number[] => [...coins, coin]);
+  }
+
+  /** Die Münze ist im Schlitz verschwunden: Das Schwein wackelt kurz. */
+  protected coinLanded(coin: number): void {
+    this.coins.update((coins: number[]): number[] => coins.filter((other: number): boolean => other !== coin));
+    this.piggyBank().nativeElement.animate([
+      {transform: 'none'},
+      {transform: 'translateY(2px) scale(1.15, 0.85)'},
+      {transform: 'translateY(-2px) rotate(-8deg)'},
+      {transform: 'rotate(5deg)'},
+      {transform: 'none'},
+    ], {duration: 450, easing: 'ease-out'});
   }
 
   protected save(): void {
