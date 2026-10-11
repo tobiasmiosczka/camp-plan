@@ -1,6 +1,4 @@
-import {computed, effect, inject, Injectable, linkedSignal, resource, signal, untracked} from '@angular/core';
-import {toObservable} from '@angular/core/rxjs-interop';
-import {filter, firstValueFrom, Observable} from 'rxjs';
+import {computed, effect, inject, Injectable, Injector, linkedSignal, resource, signal} from '@angular/core';
 import {calculationKey, EngineResult} from './calculation/engine';
 import {Plan, PlanData} from './calculation/plan';
 import {Position} from './calculation/position';
@@ -8,6 +6,7 @@ import {ScenarioResults} from './calculation/scenarios';
 import {CalculationRunner} from './calculation-runner';
 import {PlanStore} from './plan-store';
 import {ValueRange} from './value-range';
+import {whenSignal} from './when-signal';
 
 /** Ein vollständiges Ergebnis, den Positionen und Städten des Plans wieder zugeordnet. */
 export interface PlanResult {
@@ -34,6 +33,7 @@ export class PlanCalculation {
 
   private readonly store = inject(PlanStore);
   private readonly runner = inject(CalculationRunner);
+  private readonly injector = inject(Injector);
 
   private readonly request = computed((): Request => {
     const data: PlanData = this.store.data();
@@ -84,7 +84,6 @@ export class PlanCalculation {
     const result: PlanResult | null = this.result();
     return result?.key === this.request().key ? result : null;
   });
-  private readonly current$: Observable<PlanResult | Error | null> = toObservable(this.current);
 
   constructor() {
     effect((onCleanup): void => {
@@ -105,10 +104,8 @@ export class PlanCalculation {
    * begonnen.
    */
   async latest(): Promise<PlanResult> {
-    // toObservable meldet einem neuen Abonnenten zuerst den zuletzt gesehenen Wert, auch wenn er inzwischen veraltet ist
-    const current: PlanResult | Error = await firstValueFrom(this.current$.pipe(
-      filter((current: PlanResult | Error | null): current is PlanResult | Error =>
-        current !== null && current === untracked(this.current))));
+    const current: PlanResult | Error = await whenSignal(this.current,
+      (current: PlanResult | Error | null): current is PlanResult | Error => current !== null, this.injector);
     if (current instanceof Error) {
       throw current;
     }

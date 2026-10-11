@@ -4,7 +4,8 @@ import {MatCardModule} from '@angular/material/card';
 import {PlotlyModule} from 'angular-plotly.js';
 import {EngineResult} from '../../calculation/engine';
 import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios';
-import {ChartSource, formatEuro, PdfExport, ReportChart} from '../../pdf-export';
+import {PdfExport} from '../../pdf-export';
+import {ChartSource, formatEuro, ReportChart} from '../../report';
 import {ThemeStore} from '../../theme-store';
 import {ChartStyle, Figure, NO_SCENARIOS, reportChart} from '../chart-style';
 

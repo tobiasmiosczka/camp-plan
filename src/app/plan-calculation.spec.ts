@@ -4,19 +4,6 @@ import {PlanCalculation} from './plan-calculation';
 import {PlanStore} from './plan-store';
 import {CalculationRunner} from './calculation-runner';
 
-/** Node stellt unter jsdom kein nutzbares localStorage bereit. */
-function memoryStorage(): Storage {
-  const items = new Map<string, string>();
-  return {
-    get length() { return items.size; },
-    clear: () => items.clear(),
-    getItem: (key: string) => items.get(key) ?? null,
-    key: (index: number) => [...items.keys()][index] ?? null,
-    removeItem: (key: string) => void items.delete(key),
-    setItem: (key: string, value: string) => void items.set(key, value),
-  };
-}
-
 describe('PlanCalculation', () => {
   let store: PlanStore;
   let calculation: PlanCalculation;
@@ -24,7 +11,6 @@ describe('PlanCalculation', () => {
   const settle = (): Promise<void> => TestBed.inject(ApplicationRef).whenStable();
 
   beforeEach(async () => {
-    vi.stubGlobal('localStorage', memoryStorage());
     store = TestBed.inject(PlanStore);
     const runner = TestBed.inject(CalculationRunner);
     const run = runner.run.bind(runner);
@@ -36,8 +22,6 @@ describe('PlanCalculation', () => {
     calculation = TestBed.inject(PlanCalculation);
     await settle();
   });
-
-  afterEach(() => vi.unstubAllGlobals());
 
   it('calculates the plan and maps the results back to its positions', () => {
     const result = calculation.result()!;

@@ -22,25 +22,11 @@ class FakeDistributionChart {
   readonly perParticipant = input();
 }
 
-/** Node stellt unter jsdom kein nutzbares localStorage bereit. */
-function memoryStorage(): Storage {
-  const items = new Map<string, string>();
-  return {
-    get length() { return items.size; },
-    clear: () => items.clear(),
-    getItem: (key: string) => items.get(key) ?? null,
-    key: (index: number) => [...items.keys()][index] ?? null,
-    removeItem: (key: string) => void items.delete(key),
-    setItem: (key: string, value: string) => void items.set(key, value),
-  };
-}
-
 describe('AccountPanel', () => {
   let fixture: ComponentFixture<AccountPanel>;
   const text = (): string => fixture.nativeElement.textContent.replace(/\s+/g, ' ');
 
   beforeEach(async () => {
-    vi.stubGlobal('localStorage', memoryStorage());
     registerLocaleData(localeDe);
     TestBed.configureTestingModule({
       imports: [AccountPanel],
@@ -57,8 +43,6 @@ describe('AccountPanel', () => {
     fixture = TestBed.createComponent(AccountPanel);
     await fixture.whenStable();
   });
-
-  afterEach(() => vi.unstubAllGlobals());
 
   it('shows the result of the example plan', () => {
     expect(text()).toContain('15.498 Szenarien');

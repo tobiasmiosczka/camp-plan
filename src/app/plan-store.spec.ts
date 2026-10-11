@@ -2,28 +2,12 @@ import {TestBed} from '@angular/core/testing';
 import {ContextType} from './calculation/position';
 import {PlanStore} from './plan-store';
 
-/** Node stellt unter jsdom kein nutzbares localStorage bereit. */
-function memoryStorage(): Storage {
-  const items = new Map<string, string>();
-  return {
-    get length() { return items.size; },
-    clear: () => items.clear(),
-    getItem: (key: string) => items.get(key) ?? null,
-    key: (index: number) => [...items.keys()][index] ?? null,
-    removeItem: (key: string) => void items.delete(key),
-    setItem: (key: string, value: string) => void items.set(key, value),
-  };
-}
-
 describe('PlanStore', () => {
   let store: PlanStore;
 
   beforeEach(() => {
-    vi.stubGlobal('localStorage', memoryStorage());
     store = TestBed.inject(PlanStore);
   });
-
-  afterEach(() => vi.unstubAllGlobals());
 
   it('counts every change to the plan', () => {
     const position = store.plan().debit[0];
