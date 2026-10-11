@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { CurrencyPipe, registerLocaleData } from '@angular/common';
 import localeDe from '@angular/common/locales/de';
 import { AccountPanel } from './account-panel';
@@ -13,7 +13,6 @@ class FakeScenarioChart {
   readonly results = input();
   readonly cities = input();
   readonly perParticipant = input();
-  readonly version = input();
 }
 
 @Component({selector: 'app-distribution-chart', template: ''})
@@ -21,7 +20,6 @@ class FakeDistributionChart {
   readonly results = input();
   readonly calculation = input();
   readonly perParticipant = input();
-  readonly version = input();
 }
 
 /** Node stellt unter jsdom kein nutzbares localStorage bereit. */
@@ -47,11 +45,15 @@ describe('AccountPanel', () => {
     TestBed.configureTestingModule({
       imports: [AccountPanel],
       providers: [CurrencyPipe],
+      // jsdom kennt keinen IntersectionObserver; die Diagramme werden im Test von Hand geladen
+      deferBlockBehavior: DeferBlockBehavior.Manual,
     });
     TestBed.overrideComponent(AccountPanel, {
       remove: {imports: [ScenarioChart, DistributionChart]},
       add: {imports: [FakeScenarioChart, FakeDistributionChart]},
     });
+    // Die Diagramme hinter @defer werden erst hier aufgelöst
+    await TestBed.compileComponents();
     fixture = TestBed.createComponent(AccountPanel);
     await fixture.whenStable();
   });
@@ -62,7 +64,18 @@ describe('AccountPanel', () => {
     expect(text()).toContain('15.498 Szenarien');
     expect(text()).toContain('478,70 € – 3.078,10 €');
     expect(fixture.nativeElement.querySelector('.summary').getAttribute('aria-busy')).toBe('false');
-    expect(fixture.nativeElement.querySelectorAll('app-scenario-chart, app-distribution-chart').length).toBe(2);
+  });
+
+  it('shows skeletons until the charts are loaded', async () => {
+    const charts = (): number => fixture.nativeElement.querySelectorAll('app-scenario-chart, app-distribution-chart').length;
+    expect(charts()).toBe(0);
+    expect(fixture.nativeElement.querySelectorAll('.charts .chart-skeleton').length).toBe(2);
+
+    const [deferBlock] = await fixture.getDeferBlocks();
+    await deferBlock.render(DeferBlockState.Complete);
+
+    expect(charts()).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.charts .chart-skeleton').length).toBe(0);
   });
 
   it('calculates again when a number changes', async () => {

@@ -1,4 +1,4 @@
-import {Component, effect, input, untracked} from '@angular/core';
+import {Component, computed, inject, input, linkedSignal} from '@angular/core';
 import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
@@ -7,6 +7,8 @@ import {Data} from 'plotly.js-dist-min';
 import {City, ContextType} from '../../calculation/position';
 import {Dimension, groupKey, sameDimension, ScenarioResults} from '../../calculation/scenarios';
 import {formatEuro, ReportChart} from '../../pdf-export';
+import {PlanStore} from '../../plan-store';
+import {ThemeStore} from '../../theme-store';
 import {ValueRange} from '../../value-range';
 import {ChartStyle, Figure, NO_SCENARIOS, reportChart, withAlpha} from '../chart-style';
 
@@ -21,6 +23,12 @@ interface DimensionOption {
   dimension: Dimension;
   /** Nimmt mehr als einen Wert an – nur dann lohnt sich die Dimension als Achse. */
   varies: boolean;
+}
+
+/** Gewählte Achsen; ohne Y-Achse ein Säulen- oder Liniendiagramm, mit Y-Achse eine 3D-Fläche. */
+interface Axes {
+  x: Dimension;
+  y: Dimension | null;
 }
 
 /** Überschuss gegenübergestellt nach ein oder zwei wählbaren Dimensionen: Säulen, Linie oder 3D-Fläche. */
@@ -38,31 +46,51 @@ export class ScenarioChart {
 
   readonly perParticipant = input<boolean>(false);
 
-  /** Ein neuer Wert zeichnet neu: Stadtnamen und Theme ändern sich, ohne dass sich die Eingaben selbst ändern. */
-  readonly version = input<unknown>();
+  private readonly store = inject(PlanStore);
+  private readonly theme = inject(ThemeStore);
 
-  protected graph: Figure = {data: [], layout: {}, title: '', subtitle: ''};
-  protected revision: number = 0;
-  protected dimensionOptions: DimensionOption[] = [];
-  protected xDimension: Dimension | null = null;
-  protected yDimension: Dimension | null = null;
+  protected readonly dimensionOptions = computed((): DimensionOption[] => {
+    // Städte werden an Ort und Stelle umbenannt; erst dieser Zähler macht das sichtbar
+    this.store.labels();
+    const results: ScenarioResults = this.results();
+    const types: Dimension[] = [ContextType.PARTICIPANTS, ContextType.LEADERS, ContextType.DAYS]
+      .map((type: ContextType): Dimension => ({kind: 'type', type}));
+    const cities: Dimension[] = this.cities().map((city: City): Dimension => ({kind: 'city', city}));
+    return [...types, ...cities].map((dimension: Dimension): DimensionOption => ({
+      label: dimension.kind === 'type' ? DIMENSION_LABELS[dimension.type] : `Teilnehmer aus ${dimension.city.getName()}`,
+      dimension,
+      varies: results.domain(dimension).length > 1,
+    }));
+  });
+
+  /** Bleibt bei einer neuen Rechnung erhalten, solange es die gewählten Dimensionen noch gibt. */
+  protected readonly axes = linkedSignal<DimensionOption[], Axes>({
+    source: this.dimensionOptions,
+    computation: (options: DimensionOption[], previous?: { value: Axes }): Axes => {
+      const known = (dimension: Dimension | null): boolean => dimension !== null && options
+        .some((option: DimensionOption): boolean => sameDimension(option.dimension, dimension));
+      if (previous && known(previous.value.x)) {
+        return {x: previous.value.x, y: known(previous.value.y) ? previous.value.y : null};
+      }
+      // Standard: Teilnehmer und Leiter, sofern sie variieren, sonst die Tage
+      const varying: Dimension[] = options
+        .slice(0, 2)
+        .filter((option: DimensionOption): boolean => option.varies)
+        .map((option: DimensionOption): Dimension => option.dimension);
+      return {x: varying[0] ?? options[2].dimension, y: varying[1] ?? null};
+    },
+  });
+
+  protected readonly graph = computed((): Figure => {
+    // Die Farben kommen aus dem Theme und werden beim Aufbau ausgelesen
+    this.theme.dark();
+    return this.figure(new ChartStyle());
+  });
+
   protected readonly sameDimension = sameDimension;
   /** Für mat-select: Optionen werden bei jeder Rechnung neu erzeugt; „none“ steht für keine Y-Achse. */
   protected readonly compareDimension = (a: Dimension | 'none' | null, b: Dimension | 'none' | null): boolean =>
     typeof a === 'object' && typeof b === 'object' ? sameDimension(a, b) : a === b;
-
-  constructor() {
-    effect((): void => {
-      this.results();
-      this.cities();
-      this.perParticipant();
-      this.version();
-      untracked((): void => {
-        this.updateDimensions();
-        this.render();
-      });
-    });
-  }
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {
@@ -70,58 +98,27 @@ export class ScenarioChart {
   }
 
   /** Wechselt eine Achse; die Szenarien werden dafür nur neu gruppiert, nicht neu berechnet. */
-  protected setDimension(axis: 'x' | 'y', dimension: Dimension | null): void {
-    if (axis === 'x' && dimension !== null) {
-      this.xDimension = dimension;
-      if (sameDimension(dimension, this.yDimension)) {
-        this.yDimension = null;
+  protected setDimension(axis: keyof Axes, dimension: Dimension | null): void {
+    this.axes.update(({x, y}: Axes): Axes => {
+      if (axis === 'x' && dimension !== null) {
+        return {x: dimension, y: sameDimension(dimension, y) ? null : y};
       }
-    } else if (axis === 'y') {
-      this.yDimension = dimension;
-    }
-    this.render();
-  }
-
-  private render(): void {
-    this.graph = this.figure(new ChartStyle());
-    this.revision++;
-  }
-
-  private updateDimensions(): void {
-    const types: DimensionOption[] = [ContextType.PARTICIPANTS, ContextType.LEADERS, ContextType.DAYS]
-      .map((type: ContextType): DimensionOption => ({label: DIMENSION_LABELS[type], dimension: {kind: 'type', type}, varies: false}));
-    const cities: DimensionOption[] = this.cities()
-      .map((city: City): DimensionOption => ({label: `Teilnehmer aus ${city.getName()}`, dimension: {kind: 'city', city}, varies: false}));
-    this.dimensionOptions = [...types, ...cities].map((option: DimensionOption): DimensionOption =>
-      ({...option, varies: this.results().domain(option.dimension).length > 1}));
-
-    const known = (dimension: Dimension | null): boolean => this.dimensionOptions
-      .some((option: DimensionOption): boolean => sameDimension(option.dimension, dimension));
-    if (!known(this.xDimension)) {
-      // Standard: Teilnehmer und Leiter, sofern sie variieren, sonst die Tage
-      const varying: Dimension[] = types
-        .slice(0, 2)
-        .filter((option: DimensionOption): boolean => this.results().domain(option.dimension).length > 1)
-        .map((option: DimensionOption): Dimension => option.dimension);
-      this.xDimension = varying[0] ?? types[2].dimension;
-      this.yDimension = varying[1] ?? null;
-    }
-    if (!known(this.yDimension)) {
-      this.yDimension = null;
-    }
+      return axis === 'y' ? {x, y: dimension} : {x, y};
+    });
   }
 
   private dimensionLabel(dimension: Dimension): string {
-    return this.dimensionOptions.find((option: DimensionOption): boolean => sameDimension(option.dimension, dimension))?.label ?? '';
+    return this.dimensionOptions().find((option: DimensionOption): boolean => sameDimension(option.dimension, dimension))?.label ?? '';
   }
 
   private figure(style: ChartStyle): Figure {
     const valueLabel: string = this.perParticipant() ? 'Überschuss pro Teilnehmer' : 'Überschuss';
+    const {x, y}: Axes = this.axes();
     if (this.results().isEmpty()) {
       return {data: [], layout: style.base(), title: valueLabel, subtitle: NO_SCENARIOS};
     }
     // Achsen mit nur einem Wert tragen nichts zum Vergleich bei
-    const selected: Dimension[] = [this.xDimension, this.yDimension]
+    const selected: Dimension[] = [x, y]
       .filter((dimension: Dimension | null): dimension is Dimension => dimension !== null);
     const varying: Dimension[] = selected
       .filter((dimension: Dimension): boolean => this.results().domain(dimension).length > 1);

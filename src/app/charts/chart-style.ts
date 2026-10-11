@@ -1,6 +1,11 @@
+import {PlotlyService} from 'angular-plotly.js';
 import * as PlotlyJS from 'plotly.js-dist-min';
 import {Data, Layout, LayoutAxis} from 'plotly.js-dist-min';
 import {ReportChart} from '../pdf-export';
+
+// Hier statt in der App-Konfiguration: Nur die Diagramme importieren diese Datei, und die werden erst bei Bedarf
+// geladen. So landet Plotly, der mit Abstand größte Teil der App, nicht im Startpaket.
+PlotlyService.setPlotly(PlotlyJS);
 
 /** Ein fertig aufgebautes Diagramm mit Überschrift, wie es die Karte und die PDF zeigen. */
 export interface Figure {

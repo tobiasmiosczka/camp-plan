@@ -34,10 +34,16 @@
   }
 
   .t-account-card,
-  .chart,
-  .distribution {
+  .charts {
     grid-column: 1 / -1;
   }
+}
+
+/* Beide Diagramme untereinander, im selben Abstand wie die übrigen Karten */
+.charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: inherit;
 }
 
 .project mat-card-content {

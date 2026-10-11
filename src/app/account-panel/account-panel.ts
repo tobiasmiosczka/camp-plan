@@ -1,4 +1,7 @@
-import {Component, computed, DestroyRef, effect, inject, untracked, viewChild} from '@angular/core';
+import {Component, computed, DestroyRef, effect, inject, signal, Signal, untracked, viewChild} from '@angular/core';
+import {NgTemplateOutlet} from '@angular/common';
+import {toObservable} from '@angular/core/rxjs-interop';
+import {filter, firstValueFrom} from 'rxjs';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {FormsModule} from '@angular/forms';
@@ -6,7 +9,6 @@ import {City, ContextRange, ContextType, Position, Range} from '../calculation/p
 import {Plan} from '../calculation/plan';
 import {PlanCalculation} from '../plan-calculation';
 import {PlanStore, RANGE_MIN} from '../plan-store';
-import {ThemeStore} from '../theme-store';
 import {MatCardModule} from '@angular/material/card';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -15,7 +17,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {PositionTableComponent} from '../position-table/position-table';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {ValueRange} from '../value-range';
-import {PdfExport, Report, ReportPosition} from '../pdf-export';
+import {PdfExport, Report, ReportChart, ReportPosition} from '../pdf-export';
 import {ScenarioChart} from '../charts/scenario-chart/scenario-chart';
 import {DistributionChart} from '../charts/distribution-chart/distribution-chart';
 
@@ -38,6 +40,7 @@ const ZERO_RANGE: Range = {start: 0, end: 0};
     MatInputModule,
     MatTooltipModule,
     FormsModule,
+    NgTemplateOutlet,
     PositionTableComponent,
     CurrencyRangePipe,
     ScenarioChart,
@@ -56,11 +59,19 @@ export class AccountPanel {
 
   private readonly store = inject(PlanStore);
   private readonly calculation = inject(PlanCalculation);
-  private readonly theme = inject(ThemeStore);
   private readonly snackBar = inject(MatSnackBar);
 
-  private readonly scenarioChart = viewChild(ScenarioChart);
-  private readonly distributionChart = viewChild(DistributionChart);
+  // Über den Namen statt die Klasse abgefragt: Ein Verweis auf die Klasse würde die Diagramme mitsamt Plotly sofort laden
+  private readonly scenarioChart = viewChild<ScenarioChart>('scenarioChart');
+  private readonly distributionChart = viewChild<DistributionChart>('distributionChart');
+  /** Lädt die Diagramme auch ohne Scrollen, etwa weil die PDF sie braucht. */
+  protected readonly chartsRequested = signal<boolean>(false);
+  private readonly charts: Signal<[ScenarioChart, DistributionChart] | null> = computed(() => {
+    const scenario: ScenarioChart | undefined = this.scenarioChart();
+    const distribution: DistributionChart | undefined = this.distributionChart();
+    return scenario && distribution ? [scenario, distribution] : null;
+  });
+  private readonly charts$ = toObservable(this.charts);
 
   protected readonly plan = this.store.plan;
   protected readonly name = this.store.name;
@@ -78,12 +89,6 @@ export class AccountPanel {
     this.result()?.positionSums ?? new Map<Position, ValueRange>());
   /** Zusammengefasste Städte zählen mit ihrem Gewicht: so viele Szenarien wie bei vollständiger Aufzählung. */
   protected readonly scenarioCount = computed((): number => this.result()?.results.scenarioCount ?? 0);
-
-  /**
-   * Neu zeichnen, auch wenn sich das Ergebnis nicht ändert: Die Diagramme lesen die Theme-Farben beim Aufbau aus und
-   * zeigen Stadtnamen.
-   */
-  protected readonly redraw = computed((): object => ({dark: this.theme.dark(), labels: this.store.labels()}));
 
   public constructor() {
     const pdfExport: PdfExport = inject(PdfExport);
@@ -173,8 +178,18 @@ export class AccountPanel {
       debitTotal: this.debitTotal(),
       creditTotal: this.creditTotal(),
       balance: this.balance(),
-      chart: await this.scenarioChart()?.printImage() ?? null,
-      distribution: await this.distributionChart()?.printImage() ?? null,
+      ...await this.chartImages(),
     };
+  }
+
+  /** Lädt die Diagramme nach, falls sie noch nicht im Bild waren, und rendert sie für Papier. */
+  private async chartImages(): Promise<{ chart: ReportChart | null, distribution: ReportChart | null }> {
+    if (this.result() === null) {
+      return {chart: null, distribution: null};
+    }
+    this.chartsRequested.set(true);
+    const [scenario, distribution] = await firstValueFrom(this.charts$.pipe(
+      filter((charts): charts is [ScenarioChart, DistributionChart] => charts !== null)));
+    return {chart: await scenario.printImage(), distribution: await distribution.printImage()};
   }
 }

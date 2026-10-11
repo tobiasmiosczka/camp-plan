@@ -157,27 +157,44 @@
     </mat-card-content>
   </mat-card>
 
-  @if (result(); as result) {
-    <!-- Während einer neuen Rechnung bleiben die Diagramme stehen und werden nur abgedeckt: Plotly neu aufzubauen dauert -->
-    <app-scenario-chart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
-                        [results]="result.results" [cities]="contextRange().getCities()"
-                        [perParticipant]="perParticipant()" [version]="redraw()"></app-scenario-chart>
+  <!--
+    Plotly ist der größte Teil der App und wird erst geladen, wenn der Browser nichts anderes zu tun hat; gezeichnet
+    wird, sobald die Diagramme ins Bild kommen oder die PDF sie braucht. Bis dahin stehen Skelette an ihrer Stelle.
+  -->
+  @defer (on viewport; when chartsRequested(); prefetch on idle) {
+    <div class="charts">
+      @if (result(); as result) {
+        <!-- Während einer neuen Rechnung bleiben die Diagramme stehen und werden nur abgedeckt: Plotly neu aufzubauen dauert -->
+        <app-scenario-chart #scenarioChart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
+                            [results]="result.results" [cities]="contextRange().getCities()"
+                            [perParticipant]="perParticipant()"></app-scenario-chart>
 
-    <app-distribution-chart class="distribution" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
-                            [results]="result.results" [calculation]="result.calculation"
-                            [perParticipant]="perParticipant()" [version]="redraw()"></app-distribution-chart>
-  } @else {
-    @for (area of ['chart', 'distribution']; track area) {
-      <mat-card appearance="outlined" [class]="area" aria-busy="true">
-        <mat-card-header>
-          <mat-card-title><span class="skeleton chart-title-skeleton"></span></mat-card-title>
-          <mat-card-subtitle><span class="skeleton"></span></mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <span class="skeleton skeleton-block chart-skeleton"></span>
-          <span class="visually-hidden">Diagramm wird berechnet …</span>
-        </mat-card-content>
-      </mat-card>
-    }
+        <app-distribution-chart #distributionChart class="distribution" [class.is-loading]="loading()"
+                                [attr.aria-busy]="loading()" [results]="result.results"
+                                [calculation]="result.calculation"
+                                [perParticipant]="perParticipant()"></app-distribution-chart>
+      } @else {
+        <ng-container [ngTemplateOutlet]="chartSkeletons"/>
+      }
+    </div>
+  } @placeholder {
+    <div class="charts">
+      <ng-container [ngTemplateOutlet]="chartSkeletons"/>
+    </div>
   }
 </div>
+
+<ng-template #chartSkeletons>
+  @for (area of ['chart', 'distribution']; track area) {
+    <mat-card appearance="outlined" [class]="area" aria-busy="true">
+      <mat-card-header>
+        <mat-card-title><span class="skeleton chart-title-skeleton"></span></mat-card-title>
+        <mat-card-subtitle><span class="skeleton"></span></mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <span class="skeleton skeleton-block chart-skeleton"></span>
+        <span class="visually-hidden">Diagramm wird geladen …</span>
+      </mat-card-content>
+    </mat-card>
+  }
+</ng-template>

@@ -1,10 +1,11 @@
-import {Component, effect, input, untracked} from '@angular/core';
+import {Component, computed, inject, input, signal} from '@angular/core';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatCardModule} from '@angular/material/card';
 import {PlotlyModule} from 'angular-plotly.js';
 import {EngineResult} from '../../calculation/engine';
 import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios';
 import {formatEuro, ReportChart} from '../../pdf-export';
+import {ThemeStore} from '../../theme-store';
 import {ChartStyle, Figure, NO_SCENARIOS, reportChart} from '../chart-style';
 
 type Metric = 'balance' | 'debit' | 'credit';
@@ -26,49 +27,33 @@ export class DistributionChart {
 
   readonly perParticipant = input<boolean>(false);
 
-  /** Ein neuer Wert zeichnet neu, auch ohne neues Ergebnis, z. B. nach einem Theme-Wechsel. */
-  readonly version = input<unknown>();
+  private readonly theme = inject(ThemeStore);
 
-  protected metric: Metric = 'balance';
-  protected graph: Figure = {data: [], layout: {}, title: '', subtitle: ''};
-  protected revision: number = 0;
+  /** Umschalten gruppiert nur die vorhandenen Ergebnisse neu, gerechnet wird nicht. */
+  protected readonly metric = signal<Metric>('balance');
 
-  constructor() {
-    effect((): void => {
-      this.results();
-      this.calculation();
-      this.perParticipant();
-      this.version();
-      untracked((): void => this.render());
-    });
-  }
+  protected readonly graph = computed((): Figure => {
+    // Die Farben kommen aus dem Theme und werden beim Aufbau ausgelesen
+    this.theme.dark();
+    return this.figure(new ChartStyle());
+  });
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {
     return reportChart(this.figure(new ChartStyle(true)), 0.45);
   }
 
-  /** Nutzt die gespeicherten Ergebnisse, ohne neu zu rechnen. */
-  protected setMetric(metric: Metric): void {
-    this.metric = metric;
-    this.render();
-  }
-
-  private render(): void {
-    this.graph = this.figure(new ChartStyle());
-    this.revision++;
-  }
-
   private figure(style: ChartStyle): Figure {
-    const label: string = METRIC_LABELS[this.metric] + (this.perParticipant() ? ' pro Teilnehmer' : '');
+    const metric: Metric = this.metric();
+    const label: string = METRIC_LABELS[metric] + (this.perParticipant() ? ' pro Teilnehmer' : '');
     const title: string = `Verteilung der Szenarien: ${label}`;
     const results: ScenarioResults = this.results();
     const calculation: EngineResult = this.calculation();
     if (results.isEmpty()) {
       return {data: [], layout: style.base(), title, subtitle: NO_SCENARIOS};
     }
-    const values: ArrayLike<number> = this.metric === 'balance' ? calculation.values
-      : this.metric === 'debit' ? calculation.debitValues : calculation.creditValues;
+    const values: ArrayLike<number> = metric === 'balance' ? calculation.values
+      : metric === 'debit' ? calculation.debitValues : calculation.creditValues;
     const total: number = results.scenarioCount;
     const mean: number = results.mean(values);
     const result: Histogram = histogram(values, results.weights);
@@ -79,7 +64,7 @@ export class DistributionChart {
     const share = (part: number): string => part.toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
     const percent = (count: number): string => share(count / total);
     const facts: string[] = [`${total.toLocaleString('de')} Szenarien`, `Mittelwert ${formatEuro(mean)}`];
-    if (this.metric === 'balance') {
+    if (metric === 'balance') {
       facts.push(`Defizit in ${share(results.deficitShare())} der Szenarien`);
     }
     const line = (x: number, color: string, dash: 'dash' | 'dot') => ({
@@ -96,7 +81,7 @@ export class DistributionChart {
         y: result.counts,
         width: result.counts.map((): number => result.width),
         marker: {
-          color: result.counts.map((_: number, i: number): string => this.metric === 'balance' && lower(i) < 0 ? error : primary),
+          color: result.counts.map((_: number, i: number): string => metric === 'balance' && lower(i) < 0 ? error : primary),
         },
         customdata: result.counts.map((count: number, i: number): string[] =>
           [formatEuro(lower(i)), formatEuro(lower(i + 1)), percent(count)]),
@@ -112,7 +97,7 @@ export class DistributionChart {
         // Gestrichelt der Mittelwert, gepunktet die 0-€-Grenze beim Überschuss
         shapes: [
           line(mean, style.color('--mat-sys-on-surface-variant'), 'dash'),
-          ...(this.metric === 'balance' ? [line(0, error, 'dot')] : []),
+          ...(metric === 'balance' ? [line(0, error, 'dot')] : []),
         ],
         annotations: [{
           x: mean, y: 1, yref: 'paper', yanchor: 'bottom', showarrow: false,
