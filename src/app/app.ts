@@ -9,14 +9,14 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterOutlet } from '@angular/router';
+import { AccountPanel } from './account-panel/account-panel';
 import { PlanStore } from './plan-store';
 import { ThemeStore } from './theme-store';
 import { PdfExport } from './pdf-export';
 
 @Component({
   imports: [
-    RouterOutlet, MatToolbarModule, MatIconModule, MatButtonModule, MatDividerModule, MatMenuModule, MatSlideToggleModule, MatTooltipModule
+    AccountPanel, MatToolbarModule, MatIconModule, MatButtonModule, MatDividerModule, MatMenuModule, MatSlideToggleModule, MatTooltipModule
   ],
   selector: 'app-root',
   styleUrl: './app.css',

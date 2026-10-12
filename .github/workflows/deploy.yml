@@ -34,9 +34,6 @@ jobs:
       - name: Build
         run: npx ng build --base-href /${{ github.event.repository.name }}/
 
-      - name: SPA fallback
-        run: cp dist/camp-plan/browser/index.html dist/camp-plan/browser/404.html
-
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
