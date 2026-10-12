@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -13,10 +14,11 @@ import { AccountPanel } from './account-panel/account-panel';
 import { PlanStore } from './plan-store';
 import { ThemeStore } from './theme-store';
 import { PdfExport } from './pdf-export';
+import { PlanCalculation } from './plan-calculation';
 
 @Component({
   imports: [
-    AccountPanel, MatToolbarModule, MatIconModule, MatButtonModule, MatDividerModule, MatMenuModule, MatSlideToggleModule, MatTooltipModule
+    AccountPanel, MatProgressBarModule, MatToolbarModule, MatIconModule, MatButtonModule, MatDividerModule, MatMenuModule, MatSlideToggleModule, MatTooltipModule
   ],
   selector: 'app-root',
   styleUrl: './app.css',
@@ -45,6 +47,9 @@ export class App {
       title.setTitle(name ? `${name} – CampPlan` : 'CampPlan');
     });
   }
+
+  /** Fortschritt einer langen Rechnung für den Ladebalken unter der App-Leiste; sonst null. */
+  protected readonly progress = inject(PlanCalculation).progress;
 
   protected readonly theme = inject(ThemeStore);
   private readonly pdfExport = inject(PdfExport);

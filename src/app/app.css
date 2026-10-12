@@ -13,6 +13,14 @@
   color: var(--mat-sys-on-surface);
 }
 
+/* Auf der Unterkante der Leiste statt darunter: Erscheinen und Verschwinden verschieben nichts */
+.calculation-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
 .logo {
   position: relative;
   display: inline-flex;

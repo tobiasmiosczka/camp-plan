@@ -1,3 +1,5 @@
+import {Progress, PROGRESS_STEP} from './progress';
+
 export enum ContextType {
   PARTICIPANTS,
   LEADERS,
@@ -104,15 +106,19 @@ export class ContextRange {
    * Nur die Städte in `relevant` werden einzeln aufgezählt. Die übrigen wirken sich nur über die Gesamtzahl aus und
    * werden zu einer Spanne zusammengefasst – das ergibt dieselben Ergebnisse mit weit weniger Szenarien.
    */
-  public getPermutations(relevant: City[] = this.cities): Context[] {
+  public getPermutations(relevant: City[] = this.cities, onProgress?: Progress): Context[] {
     const result: Context[] = [];
-    for (const [cities, participants] of this.cityPermutations(relevant)) {
+    const cityPermutations: [Map<City, number>, number][] = this.cityPermutations(relevant);
+    cityPermutations.forEach(([cities, participants]: [Map<City, number>, number], i: number): void => {
       for (let leaders of range(this.get(ContextType.LEADERS))) {
         for (let days of range(this.get(ContextType.DAYS))) {
           result.push(new Context(participants, leaders, days, cities));
         }
       }
-    }
+      if (onProgress && i % PROGRESS_STEP === 0) {
+        onProgress(i / cityPermutations.length);
+      }
+    });
     return result;
   }
 

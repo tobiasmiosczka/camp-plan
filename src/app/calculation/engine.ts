@@ -2,6 +2,7 @@ import {ValueRange} from '../value-range';
 import {Calculation, calculate} from './calculator';
 import {Plan, PlanData, planFromData} from './plan';
 import {City, Context, PerCityModifier, Position, PositionModifier} from './position';
+import {phase, Progress} from './progress';
 import {ScenarioColumns, toColumns} from './scenarios';
 
 /** Alles, was die Oberfläche aus einer Rechnung braucht – nur Zahlen, damit es sich an den Worker übergeben lässt. */
@@ -27,6 +28,7 @@ export interface EngineRequest {
 
 export type EngineResponse =
   | { id: number, result: EngineResult }
+  | { id: number, progress: number }
   | { id: number, error: string };
 
 /** Städte, auf die ein Faktor „pro Teilnehmer aus …“ verweist. */
@@ -37,13 +39,17 @@ export function referencedCities(positions: Position[]): City[] {
     .map((modifier: PerCityModifier): City => modifier.getCity());
 }
 
-/** Rechnet einen gespeicherten Plan vollständig durch; läuft im Worker, ohne Worker auch im Haupt-Thread. */
-export function evaluate(data: PlanData, perParticipant: boolean): EngineResult {
+/**
+ * Rechnet einen gespeicherten Plan vollständig durch; läuft im Worker, ohne Worker auch im Haupt-Thread.
+ * Die Anteile der Phasen am Fortschritt sind gemessen, damit der Ladebalken gleichmäßig läuft.
+ */
+export function evaluate(data: PlanData, perParticipant: boolean, onProgress?: Progress): EngineResult {
   const plan: Plan = planFromData(data);
   const positions: Position[] = [...plan.debit, ...plan.credit];
   const relevant: City[] = referencedCities(positions);
-  const contexts: Context[] = plan.contextRange.getPermutations(relevant);
-  const calculation: Calculation = calculate(contexts, plan.contextRange, plan.debit, plan.credit, perParticipant);
+  const contexts: Context[] = plan.contextRange.getPermutations(relevant, phase(onProgress, 0, 0.35));
+  const calculation: Calculation = calculate(contexts, plan.contextRange, plan.debit, plan.credit, perParticipant,
+    phase(onProgress, 0.35, 0.9));
   return {
     values: calculation.values,
     debitValues: calculation.debitValues,
@@ -52,7 +58,7 @@ export function evaluate(data: PlanData, perParticipant: boolean): EngineResult 
     debitTotal: calculation.debitTotal,
     creditTotal: calculation.creditTotal,
     balance: calculation.balance,
-    scenarios: toColumns(contexts, plan.contextRange.getCities(), relevant),
+    scenarios: toColumns(contexts, plan.contextRange.getCities(), relevant, phase(onProgress, 0.9, 1)),
   };
 }
 

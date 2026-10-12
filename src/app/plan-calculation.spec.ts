@@ -8,16 +8,19 @@ describe('PlanCalculation', () => {
   let store: PlanStore;
   let calculation: PlanCalculation;
   let runs: number;
+  let runner: CalculationRunner;
+  /** Die echte Rechnung, bevor der Test sie beobachtet. */
+  let original: CalculationRunner['run'];
   const settle = (): Promise<void> => TestBed.inject(ApplicationRef).whenStable();
 
   beforeEach(async () => {
     store = TestBed.inject(PlanStore);
-    const runner = TestBed.inject(CalculationRunner);
-    const run = runner.run.bind(runner);
+    runner = TestBed.inject(CalculationRunner);
+    original = runner.run.bind(runner);
     runs = 0;
     vi.spyOn(runner, 'run').mockImplementation((...args) => {
       runs++;
-      return run(...args);
+      return original(...args);
     });
     calculation = TestBed.inject(PlanCalculation);
     await settle();
@@ -61,6 +64,40 @@ describe('PlanCalculation', () => {
 
     expect(after).not.toBe(before);
     expect(after.positionSums.get(store.plan().debit[1])).toEqual({min: 700, max: 700});
+  });
+
+  it('shows no progress for a quick calculation', async () => {
+    store.setAmount(store.plan().debit[1], 700);
+    await settle();
+
+    expect(calculation.progress()).toBeNull();
+  });
+
+  it('shows the progress of a long calculation and hides it when done', async () => {
+    let finish!: () => void;
+    let report!: (share: number) => void;
+    vi.mocked(runner.run).mockImplementationOnce((plan, perParticipant, abortSignal, onProgress) => {
+      report = onProgress!;
+      return new Promise(resolve => finish = () => resolve(original(plan, perParticipant)));
+    });
+    const now = vi.spyOn(performance, 'now');
+
+    store.setAmount(store.plan().debit[1], 700);
+    // Nicht auf Stabilität warten: Die Rechnung hält der Test absichtlich an
+    TestBed.tick();
+    await vi.waitFor(() => expect(report).toBeDefined());
+    now.mockReturnValue(performance.now() + 100);
+    report(0.2);
+    expect(calculation.progress()).toBeNull();
+
+    now.mockReturnValue(Number.MAX_SAFE_INTEGER);
+    report(0.6);
+    expect(calculation.progress()).toBe(0.6);
+
+    finish();
+    await settle();
+    expect(calculation.progress()).toBeNull();
+    now.mockRestore();
   });
 
   it('calculates again for the per-participant view', async () => {

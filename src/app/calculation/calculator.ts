@@ -1,5 +1,6 @@
 import {ValueRange} from '../value-range';
 import {Context, ContextRange, ContextType, PerCityModifier, Position, PositionModifier, Range} from './position';
+import {Progress, PROGRESS_STEP} from './progress';
 
 export interface Calculation {
   /** Überschuss je Szenario, in derselben Reihenfolge wie die Szenarien. */
@@ -21,7 +22,7 @@ export interface Calculation {
  * Einzeln je Szenario gerechnet werden nur Positionen mit „pro Teilnehmer aus …“.
  */
 export function calculate(contexts: Context[], contextRange: ContextRange, debit: Position[], credit: Position[],
-                          perParticipant: boolean): Calculation {
+                          perParticipant: boolean, onProgress?: Progress): Calculation {
   const positions: Position[] = [...debit, ...credit];
   const isDebit = (i: number): boolean => i < debit.length;
   const byCity = (position: Position): boolean =>
@@ -96,6 +97,9 @@ export function calculate(contexts: Context[], contextRange: ContextRange, debit
     values[c] = creditSum - debitSum;
     debitValues[c] = debitSum;
     creditValues[c] = creditSum;
+    if (onProgress && c % PROGRESS_STEP === 0) {
+      onProgress(c / contexts.length);
+    }
   }
 
   const orEmpty = (range: ValueRange): ValueRange => contexts.length > 0 ? range : {min: 0, max: 0};

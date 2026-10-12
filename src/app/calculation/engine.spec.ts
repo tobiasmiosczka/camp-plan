@@ -38,6 +38,24 @@ describe('evaluate', () => {
   });
 });
 
+describe('evaluate progress', () => {
+  it('reports a growing share up to the end of the calculation', () => {
+    const plan = defaultPlan();
+    // Groß genug für mehrere Meldungen je Phase
+    plan.contextRange.getCities()[1].getParticipants().end = 100;
+    const shares: number[] = [];
+
+    const result = evaluate(planToData(plan), false, share => shares.push(share));
+
+    expect(result.values.length).toBeGreaterThan(500_000);
+    expect(shares.length).toBeGreaterThan(10);
+    expect(shares).toEqual([...shares].sort((a, b) => a - b));
+    expect(shares[0]).toBe(0);
+    expect(shares.at(-1)).toBeGreaterThan(0.9);
+    expect(shares.at(-1)).toBeLessThanOrEqual(1);
+  });
+});
+
 describe('calculationKey', () => {
   it('stays the same for renaming, but changes with any number', () => {
     const plan = defaultPlan();

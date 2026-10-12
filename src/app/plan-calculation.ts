@@ -17,6 +17,9 @@ export interface PlanResult {
   positionSums: Map<Position, ValueRange>;
 }
 
+/** Erst ab dieser Rechendauer erscheint der Ladebalken; kürzere Rechnungen kommen mit dem Skelett aus. */
+const LONG_CALCULATION_MS: number = 400;
+
 interface Request {
   data: PlanData;
   perParticipant: boolean;
@@ -41,6 +44,15 @@ export class PlanCalculation {
     return {data, perParticipant, key: calculationKey(data, perParticipant)};
   }, {equal: (a: Request, b: Request): boolean => a.key === b.key});
 
+  private readonly progressSignal = signal<number | null>(null);
+  /** Fortschritt einer Rechnung, die schon spürbar dauert, von 0 bis 1; sonst null. */
+  readonly progress = this.progressSignal.asReadonly();
+  /**
+   * Seit wann ohne Pause gerechnet wird. Bricht eine neue Eingabe eine lange Rechnung ab, zählt die Zeit weiter:
+   * Der Ladebalken bleibt dann stehen, statt kurz zu verschwinden.
+   */
+  private busySince: number | null = null;
+
   private readonly resource = resource({
     params: (): Request => this.request(),
     loader: async ({params, abortSignal}): Promise<PlanResult> => {
@@ -48,7 +60,22 @@ export class PlanCalculation {
       // Positionen oder Städten hätte eine neue Anfrage ausgelöst und diese hier abgebrochen.
       const plan: Plan = this.store.plan();
       const positions: Position[] = [...plan.debit, ...plan.credit];
-      const calculation: EngineResult = await this.runner.run(params.data, params.perParticipant, abortSignal);
+      const busySince: number = this.busySince ??= performance.now();
+      const onProgress = (share: number): void => {
+        if (!abortSignal.aborted && performance.now() - busySince >= LONG_CALCULATION_MS) {
+          this.progressSignal.set(share);
+        }
+      };
+      let calculation: EngineResult;
+      try {
+        calculation = await this.runner.run(params.data, params.perParticipant, abortSignal, onProgress);
+      } finally {
+        // Abgebrochen heißt: Die nächste Rechnung läuft schon und übernimmt den Ladebalken
+        if (!abortSignal.aborted) {
+          this.busySince = null;
+          this.progressSignal.set(null);
+        }
+      }
       return {
         key: params.key,
         calculation,

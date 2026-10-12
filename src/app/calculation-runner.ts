@@ -1,9 +1,11 @@
 import {Injectable, OnDestroy} from '@angular/core';
 import {EngineRequest, EngineResponse, EngineResult, evaluate} from './calculation/engine';
 import {PlanData} from './calculation/plan';
+import {Progress} from './calculation/progress';
 
 interface Pending {
   id: number;
+  onProgress?: Progress;
   resolve: (result: EngineResult) => void;
   reject: (error: Error) => void;
 }
@@ -22,15 +24,15 @@ export class CalculationRunner implements OnDestroy {
   private pending: Pending | null = null;
   private nextId: number = 0;
 
-  run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal): Promise<EngineResult> {
+  run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal, onProgress?: Progress): Promise<EngineResult> {
     if (typeof Worker === 'undefined') {
-      return Promise.resolve().then((): EngineResult => evaluate(plan, perParticipant));
+      return Promise.resolve().then((): EngineResult => evaluate(plan, perParticipant, onProgress));
     }
     this.cancel();
     const worker: Worker = this.worker ??= this.createWorker();
     const id: number = ++this.nextId;
     return new Promise<EngineResult>((resolve, reject): void => {
-      this.pending = {id, resolve, reject};
+      this.pending = {id, onProgress, resolve, reject};
       abortSignal?.addEventListener('abort', (): void => {
         if (this.pending?.id === id) {
           this.cancel();
@@ -50,6 +52,10 @@ export class CalculationRunner implements OnDestroy {
     worker.addEventListener('message', ({data}: MessageEvent<EngineResponse>): void => {
       const pending: Pending | null = this.pending;
       if (pending?.id !== data.id) {
+        return;
+      }
+      if ('progress' in data) {
+        pending.onProgress?.(data.progress);
         return;
       }
       this.pending = null;

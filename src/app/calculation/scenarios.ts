@@ -1,5 +1,6 @@
 import {ValueRange} from '../value-range';
 import {City, Context, ContextRange, ContextType, Range, range} from './position';
+import {Progress, PROGRESS_STEP} from './progress';
 
 /** Eine Größe, nach der sich die Szenarien gegenüberstellen lassen. */
 export type Dimension =
@@ -30,18 +31,34 @@ export interface ScenarioColumns {
   cities: Int32Array[];
 }
 
-export function toColumns(contexts: Context[], cities: City[], relevant: City[]): ScenarioColumns {
+export function toColumns(contexts: Context[], cities: City[], relevant: City[], onProgress?: Progress): ScenarioColumns {
   const indices: number[] = cities
     .map((city: City, i: number): number => relevant.includes(city) ? i : -1)
     .filter((i: number): boolean => i >= 0);
-  return {
+  const relevantCities: City[] = indices.map((i: number): City => cities[i]);
+  // Eine Schleife über vorab angelegte Spalten: Int32Array.from mit Funktion je Eintrag ist bei Millionen Szenarien
+  // der langsamste Teil der ganzen Rechnung
+  const count: number = contexts.length;
+  const columns: ScenarioColumns = {
     relevant: indices,
-    participants: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.PARTICIPANTS)),
-    leaders: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.LEADERS)),
-    days: Int32Array.from(contexts, (context: Context): number => context.get(ContextType.DAYS)),
-    cities: indices.map((i: number): Int32Array =>
-      Int32Array.from(contexts, (context: Context): number => context.getParticipantsFrom(cities[i]))),
+    participants: new Int32Array(count),
+    leaders: new Int32Array(count),
+    days: new Int32Array(count),
+    cities: relevantCities.map((): Int32Array => new Int32Array(count)),
   };
+  for (let i = 0; i < count; i++) {
+    const context: Context = contexts[i];
+    columns.participants[i] = context.get(ContextType.PARTICIPANTS);
+    columns.leaders[i] = context.get(ContextType.LEADERS);
+    columns.days[i] = context.get(ContextType.DAYS);
+    for (let c = 0; c < relevantCities.length; c++) {
+      columns.cities[c][i] = context.getParticipantsFrom(relevantCities[c]);
+    }
+    if (onProgress && i % PROGRESS_STEP === 0) {
+      onProgress(i / count);
+    }
+  }
+  return columns;
 }
 
 /**
