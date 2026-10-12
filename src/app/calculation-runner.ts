@@ -24,9 +24,11 @@ export class CalculationRunner implements OnDestroy {
   private pending: Pending | null = null;
   private nextId: number = 0;
 
-  run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal, onProgress?: Progress): Promise<EngineResult> {
+  async run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal,
+            onProgress?: Progress): Promise<EngineResult> {
     if (typeof Worker === 'undefined') {
-      return Promise.resolve().then((): EngineResult => evaluate(plan, perParticipant, onProgress));
+      // async macht einen Fehler hier zu einem abgelehnten Promise, wie beim Worker
+      return evaluate(plan, perParticipant, onProgress);
     }
     this.cancel();
     const worker: Worker = this.worker ??= this.createWorker();
