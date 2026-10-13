@@ -1,24 +1,25 @@
 import {inject, Injectable, signal} from '@angular/core';
-import {MediaMatcher} from '@angular/cdk/layout';
+import {BreakpointObserver} from '@angular/cdk/layout';
 
 @Injectable({providedIn: 'root'})
 export class ThemeStore {
 
   private static readonly STORAGE_KEY = 'camp-plan-theme';
+  private static readonly SYSTEM_DARK = '(prefers-color-scheme: dark)';
 
-  /** Über die CDK: Ohne Browser (Tests, Server) liefert sie eine Abfrage, die nie zutrifft, statt zu scheitern. */
-  private readonly system: MediaQueryList = inject(MediaMatcher).matchMedia('(prefers-color-scheme: dark)');
+  /** Über die CDK: Ohne Browser (Tests, Server) trifft die Abfrage nie zu, statt zu scheitern. */
+  private readonly breakpoints = inject(BreakpointObserver);
   /** Ausdrückliche Wahl; null heißt: wie das Betriebssystem (Material-Design-Standard). */
   private choice: boolean | null = this.restore();
-  private readonly darkSignal = signal<boolean>(this.choice ?? this.system.matches);
+  private readonly darkSignal = signal<boolean>(this.choice ?? this.systemDark());
 
   /** Dunkles Farbschema aktiv – gewählt oder vom System übernommen. */
   readonly dark = this.darkSignal.asReadonly();
 
   constructor() {
     this.apply();
-    // addListener statt addEventListener: Nur das kennt auch die Ersatz-Abfrage der CDK
-    this.system.addListener((): void => {
+    // Der Store lebt so lange wie die App; das Abonnement muss nie beendet werden
+    this.breakpoints.observe(ThemeStore.SYSTEM_DARK).subscribe((): void => {
       if (this.choice === null) {
         this.apply();
       }
@@ -47,10 +48,14 @@ export class ThemeStore {
   }
 
   private apply(): void {
-    const dark: boolean = this.choice ?? this.system.matches;
+    const dark: boolean = this.choice ?? this.systemDark();
     // Erst das DOM umstellen, damit Effekte, die auf das Signal reagieren, schon die neuen Farben auslesen
     document.body.style.colorScheme = dark ? 'dark' : 'light';
     this.darkSignal.set(dark);
+  }
+
+  private systemDark(): boolean {
+    return this.breakpoints.isMatched(ThemeStore.SYSTEM_DARK);
   }
 
   private restore(): boolean | null {

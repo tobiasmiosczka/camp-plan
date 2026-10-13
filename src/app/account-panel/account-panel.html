@@ -2,8 +2,8 @@
   <mat-card appearance="outlined" class="project">
     <mat-card-content>
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="project-name">
-        <mat-label>Projektname</mat-label>
-        <input matInput placeholder="z. B. Sommerlager 2027" maxlength="120" autocomplete="off"
+        <mat-label>{{ t().project.name }}</mat-label>
+        <input matInput [placeholder]="t().project.placeholder" maxlength="120" autocomplete="off"
                [ngModel]="name()" (ngModelChange)="rename($event)"/>
       </mat-form-field>
     </mat-card-content>
@@ -12,34 +12,34 @@
   <mat-card appearance="outlined" class="summary" [class.negative]="!loading() && balance().min < 0"
             [attr.aria-busy]="loading()">
     <mat-card-content>
-      <div class="summary-label">Überschuss {{ perParticipant() ? 'pro Teilnehmer' : 'gesamt' }}</div>
+      <div class="summary-label">{{ t().summary.title(perParticipant()) }}</div>
       <!-- Jede Zeile steht immer da, ob geladen wird oder nicht: Die Karte behält ihre Höhe und nichts verrutscht -->
       <div class="summary-value">
         @if (loading()) {
           <span class="skeleton summary-value-skeleton"></span>
-          <span class="visually-hidden">Wird berechnet …</span>
+          <span class="visually-hidden">{{ t().summary.calculating }}</span>
         } @else {
-          {{ balance() | currencyRange }}
+          {{ balance() | currencyRange: t().locale }}
         }
       </div>
       <div class="summary-scenarios">
         @if (loading()) {
           <span class="skeleton"></span>
         } @else {
-          {{ scenarioCount().toLocaleString('de') }} Szenarien
+          {{ t().common.scenarios(scenarioCount()) }}
         }
       </div>
       <div class="summary-hint" [class.reserved]="loading() || balance().min >= 0">
         <mat-icon aria-hidden="true">warning</mat-icon>
-        In mindestens einem Szenario entsteht ein Defizit.
+        {{ t().summary.deficit }}
       </div>
     </mat-card-content>
   </mat-card>
 
   <mat-card appearance="outlined" class="settings">
     <mat-card-header>
-      <mat-card-title>Rahmenbedingungen</mat-card-title>
-      <mat-card-subtitle>Bereiche, für die das Lager durchgerechnet wird</mat-card-subtitle>
+      <mat-card-title>{{ t().settings.title }}</mat-card-title>
+      <mat-card-subtitle>{{ t().settings.subtitle }}</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <div class="range-grid">
@@ -47,16 +47,16 @@
           <fieldset class="range">
             <legend>
               <mat-icon aria-hidden="true">{{ row.icon }}</mat-icon>
-              {{ row.label }}
+              {{ t().common[row.label] }}
             </legend>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>von</mat-label>
+              <mat-label>{{ t().common.from }}</mat-label>
               <input matInput type="number" [min]="row.min" step="1"
                      [ngModel]="contextRange().get(row.type).start"
                      (ngModelChange)="setRange(row.type, 'start', $event)"/>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>bis</mat-label>
+              <mat-label>{{ t().common.to }}</mat-label>
               <input matInput type="number" [min]="contextRange().get(row.type).start" step="1"
                      [ngModel]="contextRange().get(row.type).end"
                      (ngModelChange)="setRange(row.type, 'end', $event)"/>
@@ -69,34 +69,33 @@
 
   <mat-card appearance="outlined" class="cities">
     <mat-card-header>
-      <mat-card-title>Teilnehmende Städte</mat-card-title>
-      <mat-card-subtitle>
-        {{ participantsLabel() }} Teilnehmer insgesamt
-      </mat-card-subtitle>
+      <mat-card-title>{{ t().cities.title }}</mat-card-title>
+      <mat-card-subtitle>{{ t().cities.subtitle(participantsLabel()) }}</mat-card-subtitle>
     </mat-card-header>
     <mat-card-content>
       <div class="city-list">
         @for (city of contextRange().getCities(); track city) {
           <div class="city">
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-name">
-              <mat-label>Stadt</mat-label>
-              <input matInput [readonly]="city.isOthers()" [ngModel]="city.getName()"
+              <mat-label>{{ t().common.city }}</mat-label>
+              <input matInput [readonly]="city.isOthers()" [ngModel]="cityName(city)"
                      (ngModelChange)="setCityName(city, $event)"/>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
-              <mat-label>von</mat-label>
+              <mat-label>{{ t().common.from }}</mat-label>
               <input matInput type="number" min="0" step="1"
                      [ngModel]="city.getParticipants().start"
                      (ngModelChange)="setCityRange(city, 'start', $event)"/>
             </mat-form-field>
             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
-              <mat-label>bis</mat-label>
+              <mat-label>{{ t().common.to }}</mat-label>
               <input matInput type="number" [min]="city.getParticipants().start" step="1"
                      [ngModel]="city.getParticipants().end"
                      (ngModelChange)="setCityRange(city, 'end', $event)"/>
             </mat-form-field>
             @if (!city.isOthers()) {
-              <button mat-icon-button (click)="removeCity(city)" aria-label="Stadt löschen" matTooltip="Stadt löschen">
+              <button mat-icon-button (click)="removeCity(city)" [attr.aria-label]="t().cities.remove"
+                      [matTooltip]="t().cities.remove">
                 <mat-icon>delete</mat-icon>
               </button>
             }
@@ -105,57 +104,12 @@
       </div>
       <button mat-button (click)="addCity()">
         <mat-icon>add</mat-icon>
-        Stadt hinzufügen
+        {{ t().cities.add }}
       </button>
     </mat-card-content>
   </mat-card>
 
-  <mat-card appearance="outlined" class="t-account-card">
-    <mat-card-content>
-      <div class="t-account">
-        <h2 class="t-head debit">
-          <mat-icon aria-hidden="true">trending_down</mat-icon>
-          Ausgaben
-        </h2>
-        <h2 class="t-head credit">
-          <mat-icon aria-hidden="true">trending_up</mat-icon>
-          Einnahmen
-        </h2>
-
-        <div class="t-body debit">
-          <app-position-table side="debit" [positions]="plan().debit" [sums]="positionSums()"
-                              [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
-                              [loading]="loading()"></app-position-table>
-        </div>
-        <div class="t-body credit">
-          <app-position-table side="credit" [positions]="plan().credit" [sums]="positionSums()"
-                              [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
-                              [loading]="loading()"></app-position-table>
-        </div>
-
-        <div class="t-total debit">
-          <span>Summe Ausgaben</span>
-          <span class="t-total-value">
-            @if (loading()) {
-              <span class="skeleton"></span>
-            } @else {
-              {{ debitTotal() | currencyRange }}
-            }
-          </span>
-        </div>
-        <div class="t-total credit">
-          <span>Summe Einnahmen</span>
-          <span class="t-total-value">
-            @if (loading()) {
-              <span class="skeleton"></span>
-            } @else {
-              {{ creditTotal() | currencyRange }}
-            }
-          </span>
-        </div>
-      </div>
-    </mat-card-content>
-  </mat-card>
+  <app-t-account class="t-account-card" />
 
   <!--
     Plotly ist der größte Teil der App und wird erst geladen, wenn der Browser nichts anderes zu tun hat; gezeichnet
@@ -193,7 +147,7 @@
       </mat-card-header>
       <mat-card-content>
         <span class="skeleton skeleton-block chart-skeleton"></span>
-        <span class="visually-hidden">Diagramm wird geladen …</span>
+        <span class="visually-hidden">{{ t().charts.loading }}</span>
       </mat-card-content>
     </mat-card>
   }

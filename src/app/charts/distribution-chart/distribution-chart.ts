@@ -5,13 +5,15 @@ import {PlotlyModule} from 'angular-plotly.js';
 import {EngineResult} from '../../calculation/engine';
 import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios';
 import {PdfExport} from '../../pdf-export';
-import {ChartSource, formatEuro, ReportChart} from '../../report';
+import {Messages} from '../../i18n/de';
+import {LanguageStore} from '../../language-store';
+import {ChartSource, ReportChart} from '../../report';
 import {ThemeStore} from '../../theme-store';
-import {ChartStyle, Figure, NO_SCENARIOS, reportChart} from '../chart-style';
+import {ChartStyle, Figure, reportChart} from '../chart-style';
 
 type Metric = 'balance' | 'debit' | 'credit';
 
-const METRIC_LABELS: Record<Metric, string> = {balance: 'Überschuss', debit: 'Ausgaben', credit: 'Einnahmen'};
+const METRIC_LABELS: Record<Metric, 'surplus' | 'debit' | 'credit'> = {balance: 'surplus', debit: 'debit', credit: 'credit'};
 
 /** Histogramm: wie viele Szenarien welchen Überschuss, welche Ausgaben oder Einnahmen haben. */
 @Component({
@@ -29,6 +31,7 @@ export class DistributionChart implements ChartSource {
   readonly perParticipant = input<boolean>(false);
 
   private readonly theme = inject(ThemeStore);
+  protected readonly t = inject(LanguageStore).messages;
 
   /** Umschalten gruppiert nur die vorhandenen Ergebnisse neu, gerechnet wird nicht. */
   protected readonly metric = signal<Metric>('balance');
@@ -36,7 +39,7 @@ export class DistributionChart implements ChartSource {
   protected readonly graph = computed((): Figure => {
     // Die Farben kommen aus dem Theme und werden beim Aufbau ausgelesen
     this.theme.dark();
-    return this.figure(new ChartStyle());
+    return this.figure(new ChartStyle(this.t()));
   });
 
   constructor() {
@@ -46,20 +49,23 @@ export class DistributionChart implements ChartSource {
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {
-    return reportChart(this.figure(new ChartStyle(true)), 0.45);
+    return reportChart(this.figure(new ChartStyle(this.t(), true)), 0.45);
   }
 
   private figure(style: ChartStyle): Figure {
     const metric: Metric = this.metric();
-    const label: string = METRIC_LABELS[metric] + (this.perParticipant() ? ' pro Teilnehmer' : '');
-    const title: string = `Verteilung der Szenarien: ${label}`;
+    const t: Messages = style.t;
+    const label: string = t.common[METRIC_LABELS[metric]] + (this.perParticipant() ? ` ${t.common.perParticipant}` : '');
+    const title: string = t.charts.distributionOf(label);
     const results: ScenarioResults = this.results();
     const calculation: EngineResult = this.calculation();
     if (results.isEmpty()) {
-      return {data: [], layout: style.base(), title, subtitle: NO_SCENARIOS};
+      return {data: [], layout: style.base(), title, subtitle: t.charts.noScenarios};
     }
-    const values: ArrayLike<number> = metric === 'balance' ? calculation.values
-      : metric === 'debit' ? calculation.debitValues : calculation.creditValues;
+    const series: Record<Metric, ArrayLike<number>> = {
+      balance: calculation.values, debit: calculation.debitValues, credit: calculation.creditValues,
+    };
+    const values: ArrayLike<number> = series[metric];
     const total: number = results.scenarioCount;
     const mean: number = results.mean(values);
     const result: Histogram = histogram(values, results.weights);
@@ -67,11 +73,11 @@ export class DistributionChart implements ChartSource {
 
     const primary: string = style.color('--mat-sys-primary');
     const error: string = style.color('--mat-sys-error');
-    const share = (part: number): string => part.toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
+    const share = (part: number): string => part.toLocaleString(t.locale, {style: 'percent', maximumFractionDigits: 1});
     const percent = (count: number): string => share(count / total);
-    const facts: string[] = [`${total.toLocaleString('de')} Szenarien`, `Mittelwert ${formatEuro(mean)}`];
+    const facts: string[] = [t.common.scenarios(total), t.charts.mean(style.formatEuro(mean))];
     if (metric === 'balance') {
-      facts.push(`Defizit in ${share(results.deficitShare())} der Szenarien`);
+      facts.push(t.charts.deficitShare(share(results.deficitShare())));
     }
     const line = (x: number, color: string, dash: 'dash' | 'dot') => ({
       type: 'line' as const, yref: 'paper' as const, x0: x, x1: x, y0: 0, y1: 1, line: {color, width: 1.5, dash},
@@ -90,16 +96,17 @@ export class DistributionChart implements ChartSource {
           color: result.counts.map((_: number, i: number): string => metric === 'balance' && lower(i) < 0 ? error : primary),
         },
         customdata: result.counts.map((count: number, i: number): string[] =>
-          [formatEuro(lower(i)), formatEuro(lower(i + 1)), percent(count)]),
-        hovertemplate: '%{customdata[0]} bis %{customdata[1]}<br>%{y:,.0f} Szenarien (%{customdata[2]})<extra></extra>',
+          [style.formatEuro(lower(i)), style.formatEuro(lower(i + 1)), percent(count)]),
+        hovertemplate: `${t.charts.binRange('%{customdata[0]}', '%{customdata[1]}')}<br>`
+          + `${t.charts.scenariosTemplate} (%{customdata[2]})<extra></extra>`,
       }],
       layout: {
         ...style.base(),
         margin: {l: 72, r: 24, t: 24, b: 56},
         bargap: 0.05,
         showlegend: false,
-        xaxis: {...style.axis(), title: {text: label}, ticksuffix: ' €', tickformat: ',.0f'},
-        yaxis: {...style.axis(), title: {text: 'Anzahl Szenarien'}, tickformat: ',.0f', rangemode: 'tozero'},
+        xaxis: {...style.axis(), title: {text: label}, ...style.euroTicks(), tickformat: ',.0f'},
+        yaxis: {...style.axis(), title: {text: t.charts.scenarioCount}, tickformat: ',.0f', rangemode: 'tozero'},
         // Gestrichelt der Mittelwert, gepunktet die 0-€-Grenze beim Überschuss
         shapes: [
           line(mean, style.color('--mat-sys-on-surface-variant'), 'dash'),
@@ -107,7 +114,7 @@ export class DistributionChart implements ChartSource {
         ],
         annotations: [{
           x: mean, y: 1, yref: 'paper', yanchor: 'bottom', showarrow: false,
-          text: `Mittelwert ${formatEuro(mean)}`, font: {size: 11},
+          text: t.charts.mean(style.formatEuro(mean)), font: {size: 11},
         }],
       },
     };

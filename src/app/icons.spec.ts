@@ -14,7 +14,7 @@ function files(dir: string, extensions: string[]): string[] {
 }
 
 describe('icon font', () => {
-  const listed: string[] = readFileSync('src/index.html', 'utf8').match(/icon_names=([a-z_,]+)/)![1].split(',');
+  const listed: string[] = /icon_names=([a-z_,]+)/.exec(readFileSync('src/index.html', 'utf8'))![1].split(',');
 
   it('contains every icon the app uses', () => {
     const used = new Set<string>();
@@ -35,6 +35,8 @@ describe('icon font', () => {
   });
 
   it('lists the icons in alphabetical order, as Google Fonts requires', () => {
-    expect(listed).toEqual([...listed].sort());
+    // Nach Zeichencode, nicht nach Sprache: So sortiert auch Google Fonts
+    const byCodePoint = (a: string, b: string): number => Number(a > b) - Number(a < b);
+    expect(listed).toEqual([...listed].sort(byCodePoint));
   });
 });

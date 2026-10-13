@@ -40,11 +40,11 @@ function parse(path: string): SourceFile {
     specifier.startsWith('.') ? relative(SRC, resolve(dirname(path), specifier)) + '.ts' : null;
   const imports: Import[] = [];
   // Auch mehrzeilige Importe: alles von „import“/„export“ bis zum nächsten „from '…'“
-  for (const [, specifier] of content.matchAll(/^\s*(?:import|export)\s[^;]*?from\s+'([^']+)'/gm)) {
+  for (const [, specifier] of content.matchAll(/^[ \t]*(?:import|export)\b[^;']*\bfrom[ \t]+'([^']+)'/gm)) {
     imports.push({specifier, target: resolveTarget(specifier), dynamic: false});
   }
   // Nur für den Seiteneffekt, ohne „from“: import 'plotly.js-dist-min';
-  for (const [, specifier] of content.matchAll(/^\s*import\s+'([^']+)'/gm)) {
+  for (const [, specifier] of content.matchAll(/^[ \t]*import[ \t]+'([^']+)'/gm)) {
     imports.push({specifier, target: resolveTarget(specifier), dynamic: false});
   }
   for (const [, specifier] of content.matchAll(/\bimport\(\s*'([^']+)'\s*\)/g)) {

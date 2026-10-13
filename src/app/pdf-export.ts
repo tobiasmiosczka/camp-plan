@@ -3,11 +3,11 @@ import {Plan} from './calculation/plan';
 import {City, ContextRange, ContextType, Position, PositionModifier} from './calculation/position';
 import {PlanCalculation, PlanResult} from './plan-calculation';
 import {fileName, PlanStore} from './plan-store';
-import {ValueRange} from './value-range';
 import {whenSignal} from './when-signal';
+import {cityName, describeModifier} from './i18n/labels';
+import {Messages} from './i18n/de';
+import {LanguageStore} from './language-store';
 import {ChartKind, ChartSource, Report, ReportChart, ReportCity, ReportPosition} from './report';
-
-const ZERO: ValueRange = {min: 0, max: 0};
 
 /**
  * Erstellt die PDF aus dem Plan im {@link PlanStore} und dem Ergebnis der {@link PlanCalculation}. Die Diagramme
@@ -18,6 +18,7 @@ export class PdfExport {
 
   private readonly store = inject(PlanStore);
   private readonly calculation = inject(PlanCalculation);
+  private readonly messages = inject(LanguageStore).messages;
 
   private readonly chartsSignal = signal<Partial<Record<ChartKind, ChartSource>>>({});
   private readonly requested = signal<boolean>(false);
@@ -36,11 +37,12 @@ export class PdfExport {
     const result: PlanResult = await this.calculation.latest();
     const plan: Plan = this.store.plan();
     const contextRange: ContextRange = plan.contextRange;
+    const t: Messages = this.messages();
     const position = (p: Position): ReportPosition => ({
       title: p.getTitle(),
       amount: p.getAmount(),
-      factors: p.getModifiers().map((modifier: PositionModifier): string => modifier.getDescription()).join(' × '),
-      sum: result.positionSums.get(p) ?? ZERO,
+      factors: p.getModifiers().map((modifier: PositionModifier): string => describeModifier(modifier, t)).join(' × '),
+      sum: result.positionSums.get(p) ?? {min: 0, max: 0},
     });
     const scenarioCount: number = result.results.scenarioCount;
     const [chart, distribution] = await this.chartImages();
@@ -51,7 +53,7 @@ export class PdfExport {
       leaders: contextRange.get(ContextType.LEADERS),
       participants: scenarioCount > 0 ? contextRange.get(ContextType.PARTICIPANTS) : {start: 0, end: 0},
       cities: contextRange.getCities().map((city: City): ReportCity =>
-        ({name: city.getName(), participants: city.getParticipants()})),
+        ({name: cityName(city, t), participants: city.getParticipants()})),
       scenarioCount,
       deficitShare: result.results.deficitShare(),
       debit: plan.debit.map(position),
@@ -78,7 +80,7 @@ export class PdfExport {
   async download(): Promise<void> {
     const report: Report = await this.report();
     // Layout und jsPDF erst bei Bedarf laden, damit sie den Start der App nicht verlangsamen
-    const {renderPdf} = await import('./pdf-layout');
-    renderPdf(report).save(fileName(report.name, 'pdf'));
+    const {piggyBankImage, renderPdf} = await import('./pdf-layout');
+    renderPdf(report, await piggyBankImage(), this.messages()).save(fileName(report.name, 'pdf'));
   }
 }

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
-import { renderPdf } from './pdf-layout';
+import { piggyBankImage, renderPdf } from './pdf-layout';
 import { Report, ReportPosition } from './report';
+import { EN } from './i18n/en';
 
 function report(overrides: Partial<Report> = {}): Report {
   const position = (title: string): ReportPosition => ({title, amount: 10, factors: 'pro Tag', sum: {min: 20, max: 30}});
@@ -40,6 +41,15 @@ describe('renderPdf', () => {
     expect(page(doc, 2)).toContain('(Einnahmen)');
   });
 
+  it('puts the piggy bank before the title only when there is an image of it', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    // Bilder zeichnet jsPDF mit dem Befehl „Do“
+    expect(page(renderPdf(report(), png), 1)).toMatch(/\/I\d+ Do/);
+    expect(page(renderPdf(report()), 1)).not.toMatch(/\/I\d+ Do/);
+    // Ohne Favicon-Datei und Canvas, wie hier unter jsdom, entfällt das Symbol, statt die PDF zu verhindern
+    expect(await piggyBankImage()).toBeNull();
+  });
+
   it('numbers every page', () => {
     const doc = renderPdf(report());
     const pages = doc.getNumberOfPages();
@@ -61,5 +71,13 @@ describe('renderPdf', () => {
     const text = (doc: jsPDF): string => Array.from({length: doc.getNumberOfPages()}, (_, i) => page(doc, i + 1)).join('\n');
     expect(text(without)).not.toContain('Tagen)');
     expect(text(withCharts)).toContain('Tagen)');
+  });
+
+  it('writes the PDF in the chosen language', () => {
+    const doc = renderPdf(report(), null, EN);
+
+    expect(page(doc, 1)).toContain('(Overview)');
+    expect(page(doc, 1)).toContain('(Page 1 of 2)');
+    expect(page(doc, 2)).toContain('(Total expenses)');
   });
 });

@@ -4,6 +4,8 @@
  *
  * Texte mit Zahlen formatieren diese selbst, damit Tausendertrenner und Dezimalzeichen zur Sprache passen.
  */
+const quote = (text: string): string => `„${text}“`;
+
 export const DE = {
   /** Locale-ID für Angular-Pipes und Intl. */
   locale: 'de',
@@ -15,7 +17,7 @@ export const DE = {
     to: 'bis',
     ok: 'OK',
     undo: 'Rückgängig',
-    deleted: (name: string): string => `„${name}“ gelöscht`,
+    deleted: (name: string): string => `${quote(name)} gelöscht`,
     perParticipant: 'pro Teilnehmer',
     surplus: 'Überschuss',
     debit: 'Ausgaben',
@@ -41,7 +43,7 @@ export const DE = {
     loadExample: 'Beispielplan laden',
     resetAll: 'Alle Einstellungen zurücksetzen',
     calculating: 'Berechnung läuft',
-    opened: (file: string): string => `„${file}“ geöffnet`,
+    opened: (file: string): string => `${quote(file)} geöffnet`,
     openFailed: 'Datei konnte nicht geöffnet werden.',
     pdfFailed: 'PDF konnte nicht erstellt werden.',
     exampleLoaded: 'Beispielplan geladen',
@@ -73,7 +75,7 @@ export const DE = {
     remove: 'Stadt löschen',
     add: 'Stadt hinzufügen',
     inUse: (city: string, positions: string[]): string =>
-      `${city} wird noch verwendet in ${positions.map((title: string): string => `„${title}“`).join(', ')}.`,
+      `${city} wird noch verwendet in ${positions.map(quote).join(', ')}.`,
     newCity: 'Neue Stadt',
   },
 
@@ -166,7 +168,7 @@ export const DE = {
     invalidCity: 'Ungültige Stadt in der Datei.',
     invalidRange: (subject: string): string => `Ungültiger Bereich für ${subject}.`,
     invalidModifier: 'Ungültiger Faktor in der Datei.',
-    unknownModifier: (type: string): string => `Unbekannter Faktor „${type}“ in der Datei.`,
+    unknownModifier: (type: string): string => `Unbekannter Faktor ${quote(type)} in der Datei.`,
     unknownCity: 'Ein Faktor verweist auf eine unbekannte Stadt.',
     invalidGroupSize: 'Ungültige Gruppengröße in der Datei.',
     missingPositions: (side: string): string => `${side} fehlen in der Datei.`,

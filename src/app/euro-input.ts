@@ -1,9 +1,10 @@
-import {Directive, ElementRef, forwardRef, HostListener, inject} from '@angular/core';
+import {Directive, effect, ElementRef, forwardRef, HostListener, inject} from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
+import {LanguageStore} from './language-store';
 
-/** Formatiert einen Betrag deutsch mit zwei Nachkommastellen, z. B. „1.234,50“. */
-export function formatEuro(value: number | null, grouping: boolean = true): string {
-  return value === null ? '' : value.toLocaleString('de', {
+/** Formatiert einen Betrag mit zwei Nachkommastellen, deutsch z. B. „1.234,50“, englisch „1,234.50“. */
+export function formatEuro(value: number | null, grouping: boolean = true, locale: string = 'de'): string {
+  return value === null ? '' : value.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     useGrouping: grouping
@@ -29,14 +30,25 @@ export function parseEuro(text: string): number | null | undefined {
 export class EuroInputDirective implements ControlValueAccessor {
 
   private readonly element: HTMLInputElement = inject(ElementRef<HTMLInputElement>).nativeElement;
+  private readonly messages = inject(LanguageStore).messages;
   private value: number | null = null;
   private onChange: (value: number | null) => void = (): void => {};
   private onTouched: () => void = (): void => {};
 
+  constructor() {
+    // Beim Sprachwechsel mit den Trennzeichen der neuen Sprache anzeigen; beim Bearbeiten bleibt das Feld, wie es ist
+    effect((): void => {
+      this.messages();
+      if (document.activeElement !== this.element) {
+        this.element.value = this.format(this.value);
+      }
+    });
+  }
+
   writeValue(value: number | null): void {
     this.value = value;
     if (document.activeElement !== this.element) {
-      this.element.value = formatEuro(value);
+      this.element.value = this.format(value);
     }
   }
 
@@ -55,7 +67,7 @@ export class EuroInputDirective implements ControlValueAccessor {
   @HostListener('focus')
   protected focus(): void {
     // Ohne Tausenderpunkte, damit sich der Betrag beim Bearbeiten eindeutig lesen lässt
-    this.element.value = formatEuro(this.value, false);
+    this.element.value = this.format(this.value, false);
     this.element.select();
   }
 
@@ -70,7 +82,11 @@ export class EuroInputDirective implements ControlValueAccessor {
 
   @HostListener('blur')
   protected blur(): void {
-    this.element.value = formatEuro(this.value);
+    this.element.value = this.format(this.value);
     this.onTouched();
+  }
+
+  private format(value: number | null, grouping: boolean = true): string {
+    return formatEuro(value, grouping, this.messages().locale);
   }
 }

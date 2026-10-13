@@ -1,44 +1,52 @@
 import {jsPDF} from 'jspdf';
 import {autoTable} from 'jspdf-autotable';
 import {formatEuro, formatEuroRange, Report, ReportChart, ReportCity, ReportPosition} from './report';
+import {DE, Messages} from './i18n/de';
 import {Range} from './calculation/position';
 import {ValueRange} from './value-range';
-
-/** Sparschwein „savings“ aus Material Symbols (wie Favicon und App-Leiste), viewBox 0 -960 960 960. */
-const PIGGY_BANK_PATH = 'M668.5-531.5Q680-543 680-560t-11.5-28.5Q657-600 640-600t-28.5 11.5Q600-577 600-560t11.5 28.5Q623-520 640-520t28.5-11.5ZM320-620h200v-60H320v60ZM180-120q-34-114-67-227.5T80-580q0-92 64-156t156-64h200q29-38 70.5-59t89.5-21q25 0 42.5 17.5T720-820q0 6-1.5 12t-3.5 11q-4 11-7.5 22.5T702-751l91 91h87v279l-113 37-67 224H480v-80h-80v80H180Zm45-60h115v-80h200v80h115l63-210 102-35v-175h-52L640-728q1-25 6.5-48.5T658-824q-38 10-72 29.5T534-740H300q-66.29 0-113.14 46.86Q140-646.29 140-580q0 103.16 29 201.58Q198-280 225-180Zm255-322Z';
 
 /** Farben des hellen Themes – die PDF ist immer hell. */
 const PRIMARY: [number, number, number] = [0, 106, 106];
 const ERROR: [number, number, number] = [180, 30, 30];
 
 /**
- * jsPDF bettet kein SVG ein; deshalb wird der Pfad über eine Canvas zu einem PNG. Ohne Canvas (z. B. in Tests unter
- * jsdom) entfällt das Symbol.
+ * Das Sparschwein aus dem Favicon als PNG für den Titel; jsPDF bettet kein SVG ein. Ohne Datei oder Canvas (offline
+ * ohne Cache, in Tests unter jsdom) null: Die PDF kommt dann ohne Symbol aus.
  */
-function piggyBankImage(size: number = 160): string | null {
-  const canvas: HTMLCanvasElement = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const context: CanvasRenderingContext2D | null = canvas.getContext('2d');
-  if (context === null) {
+export async function piggyBankImage(size: number = 160): Promise<string | null> {
+  try {
+    const svg: Document = new DOMParser().parseFromString(await (await fetch('favicon.svg')).text(), 'image/svg+xml');
+    // Das Favicon folgt dem Farbmodus; die PDF ist immer hell
+    svg.querySelectorAll('style').forEach((style: Element): void => style.remove());
+    svg.querySelectorAll('path').forEach((path: Element): void => path.setAttribute('fill', `rgb(${PRIMARY.join(',')})`));
+    const image = new Image(size, size);
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+    await image.decode();
+    const canvas: HTMLCanvasElement = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context: CanvasRenderingContext2D | null = canvas.getContext('2d');
+    if (context === null) {
+      return null;
+    }
+    context.drawImage(image, 0, 0, size, size);
+    return canvas.toDataURL('image/png');
+  } catch {
     return null;
   }
-  context.scale(size / 960, size / 960);
-  context.translate(0, 960);
-  context.fillStyle = `rgb(${PRIMARY.join(',')})`;
-  context.fill(new Path2D(PIGGY_BANK_PATH));
-  return canvas.toDataURL('image/png');
 }
 
 /**
  * Setzt den Report als A4-Dokument: Übersicht, Rahmenbedingungen und Städte auf Seite 1, ab Seite 2 Ausgaben,
  * Einnahmen und die Diagramme, jede Seite nummeriert.
  */
-export function renderPdf(report: Report): jsPDF {
+export function renderPdf(report: Report, piggyBank: string | null = null, t: Messages = DE): jsPDF {
   const doc = new jsPDF({unit: 'mm', format: 'a4'});
   const margin: number = 15;
   const width: number = doc.internal.pageSize.getWidth() - 2 * margin;
-  const per: string = report.perParticipant ? ' pro Teilnehmer' : '';
+  const per: string = report.perParticipant ? ` ${t.common.perParticipant}` : '';
+  const euro = (value: number): string => formatEuro(value, t.locale);
+  const euroRange = (range: ValueRange): string => formatEuroRange(range, t.locale);
   let y: number = margin;
 
   const heading = (text: string): void => {
@@ -82,10 +90,10 @@ export function renderPdf(report: Report): jsPDF {
   /** Ausgaben und Einnahmen möglichst je auf einer Seite: passt die Tabelle nicht mehr, vorher umbrechen. */
   const positions = (title: string, rows: ReportPosition[], total: ValueRange): void => {
     const options: Options = {
-      head: [['Position', 'Betrag', 'Multipliziert mit', `Summe${per}`]],
+      head: [[t.pdf.position, t.positions.amount, t.positions.multipliedBy, `${t.positions.sum}${per}`]],
       body: rows.map((row: ReportPosition): string[] =>
-        [row.title, formatEuro(row.amount), row.factors || '–', formatEuroRange(row.sum)]),
-      foot: [[`Summe ${title}`, '', '', formatEuroRange(total)]],
+        [row.title, euro(row.amount), row.factors || '–', euroRange(row.sum)]),
+      foot: [[t.positions.total(title), '', '', euroRange(total)]],
     };
     const needed: number = 8 + measure(options, [1, 3]);
     // Länger als eine ganze Seite: dann hilft kein Umbruch, die Tabelle läuft wie gewohnt weiter
@@ -101,31 +109,30 @@ export function renderPdf(report: Report): jsPDF {
   const icon: number = 8;
   const name: string = report.name.trim();
   const titleLines: string[] = doc.setFont('helvetica', 'bold').setFontSize(18)
-    .splitTextToSize(name || 'CampPlan – Kalkulation', width - icon - 3);
-  const piggyBank: string | null = piggyBankImage();
+    .splitTextToSize(name || t.pdf.title, width - icon - 3);
   if (piggyBank !== null) {
     doc.addImage(piggyBank, 'PNG', margin, y, icon, icon);
   }
   doc.text(titleLines, margin + icon + 3, y + 6.5);
   y += (titleLines.length - 1) * 7.5;
-  const stand: string = `Stand: ${new Date().toLocaleString('de', {dateStyle: 'long', timeStyle: 'short'})}`;
+  const stand: string = t.pdf.asOf(new Date());
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100)
-    .text(name ? `CampPlan-Kalkulation  ·  ${stand}` : stand, margin, y + 12)
+    .text(name ? `${t.pdf.subtitle}  ·  ${stand}` : stand, margin, y + 12)
     .setTextColor(0);
   y += 18;
 
   // Kurzfassung ganz oben; der Überschuss als erste, hervorgehobene Zeile
   const negative: boolean = report.balance.min < 0;
-  const share: string = report.deficitShare.toLocaleString('de', {style: 'percent', maximumFractionDigits: 1});
-  heading('Übersicht');
+  const share: string = report.deficitShare.toLocaleString(t.locale, {style: 'percent', maximumFractionDigits: 1});
+  heading(t.pdf.overview);
   table({
-    head: [['Kennzahl', 'Wert']],
+    head: [[t.pdf.key, t.pdf.value]],
     body: [
-      [`Überschuss${per || ' gesamt'}`, formatEuroRange(report.balance)],
-      [`Einnahmen${per}`, formatEuroRange(report.creditTotal)],
-      [`Ausgaben${per}`, formatEuroRange(report.debitTotal)],
-      ['Szenarien', report.scenarioCount.toLocaleString('de')],
-      ['Szenarien mit Defizit', share],
+      [per ? `${t.common.surplus}${per}` : t.pdf.surplusTotal, euroRange(report.balance)],
+      [`${t.common.credit}${per}`, euroRange(report.creditTotal)],
+      [`${t.common.debit}${per}`, euroRange(report.debitTotal)],
+      [t.pdf.scenarios, report.scenarioCount.toLocaleString(t.locale)],
+      [t.pdf.deficitScenarios, share],
     ],
     columnStyles: {0: {cellWidth: 90}},
   }, [1], (data: Cell): void => {
@@ -143,18 +150,18 @@ export function renderPdf(report: Report): jsPDF {
   const gap: number = 6;
   const half: number = (width - gap) / 2;
   const columns: { title: string, x: number, options: Options }[] = [{
-    title: 'Rahmenbedingungen',
+    title: t.settings.title,
     x: margin,
     options: {
-      head: [['Rahmenbedingung', 'von', 'bis']],
+      head: [[t.pdf.setting, t.common.from, t.common.to]],
       body: [report.days, report.leaders, report.participants].map((range: Range, i: number): string[] =>
-        [['Tage', 'Leiter', 'Teilnehmer gesamt'][i], `${range.start}`, `${range.end}`]),
+        [[t.common.days, t.common.leaders, t.common.participantsTotal][i], `${range.start}`, `${range.end}`]),
     },
   }, {
-    title: 'Teilnehmende Städte',
+    title: t.cities.title,
     x: margin + half + gap,
     options: {
-      head: [['Stadt', 'von', 'bis']],
+      head: [[t.common.city, t.common.from, t.common.to]],
       body: report.cities.map((city: ReportCity): string[] =>
         [city.name, `${city.participants.start}`, `${city.participants.end}`]),
     },
@@ -189,8 +196,8 @@ export function renderPdf(report: Report): jsPDF {
     doc.addPage();
     y = margin;
   }
-  positions('Ausgaben', report.debit, report.debitTotal);
-  positions('Einnahmen', report.credit, report.creditTotal);
+  positions(t.common.debit, report.debit, report.debitTotal);
+  positions(t.common.credit, report.credit, report.creditTotal);
 
 
   const chart = (content: ReportChart): void => {
@@ -217,7 +224,7 @@ export function renderPdf(report: Report): jsPDF {
   const pages: number = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page).setFont('helvetica', 'normal').setFontSize(8).setTextColor(120)
-      .text(`Seite ${page} von ${pages}`, margin + width, doc.internal.pageSize.getHeight() - 8, {align: 'right'});
+      .text(t.pdf.page(page, pages), margin + width, doc.internal.pageSize.getHeight() - 8, {align: 'right'});
   }
   return doc;
 }

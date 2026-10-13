@@ -165,14 +165,20 @@ export class Context {
   }
 }
 
+/** Art eines Faktors, unabhängig von der Sprache: für Beschriftungen und das Dateiformat. */
+export type ModifierKind =
+  'person' | 'participant' | 'leader' | 'day' | 'night' | 'personGroup' | 'participantGroup' | 'city';
+
 export abstract class PositionModifier {
 
+  public abstract readonly kind: ModifierKind;
   public abstract modify(context: Context): number;
   public abstract getDescription(): string;
 }
 
 export abstract class GroupModifier extends PositionModifier {
 
+  public abstract override readonly kind: 'personGroup' | 'participantGroup';
   private groupSize: number;
 
   constructor(groupSize: number) {
@@ -201,6 +207,8 @@ export abstract class GroupModifier extends PositionModifier {
 
 class PerPersonModifier extends PositionModifier {
 
+  readonly kind = 'person';
+
   getDescription(): string {
     return 'pro Person';
   }
@@ -217,6 +225,8 @@ export const PER_PERSON = new PerPersonModifier();
 
 export class PerGroupModifier extends GroupModifier {
 
+  readonly kind = 'personGroup';
+
   getUnit(): string {
     return 'Personen';
   }
@@ -229,6 +239,8 @@ export class PerGroupModifier extends GroupModifier {
 }
 
 class PerParticipantModifier extends PositionModifier {
+
+  readonly kind = 'participant';
 
   getDescription(): string {
     return 'pro Teilnehmer';
@@ -244,6 +256,8 @@ export const PER_PARTICIPANT = new PerParticipantModifier();
 
 class PerLeaderModifier extends PositionModifier {
 
+  readonly kind = 'leader';
+
   modify(context: Context): number {
     return context.get(ContextType.LEADERS);
   }
@@ -256,6 +270,8 @@ class PerLeaderModifier extends PositionModifier {
 export const PER_LEADER = new PerLeaderModifier();
 
 class PerDayModifier extends PositionModifier {
+
+  readonly kind = 'day';
 
   modify(context: Context): number {
     return context.get(ContextType.DAYS);
@@ -271,6 +287,8 @@ export const PER_DAY = new PerDayModifier();
 
 class PerNightModifier extends PositionModifier {
 
+  readonly kind = 'night';
+
   modify(context: Context): number {
     return Math.max(0, context.get(ContextType.DAYS) - 1);
   }
@@ -285,6 +303,8 @@ export const PER_NIGHT = new PerNightModifier();
 
 export class PerParticipantGroup extends GroupModifier {
 
+  readonly kind = 'participantGroup';
+
   getUnit(): string {
     return 'Teilnehmer';
   }
@@ -295,6 +315,8 @@ export class PerParticipantGroup extends GroupModifier {
 }
 
 export class PerCityModifier extends PositionModifier {
+
+  readonly kind = 'city';
 
   private city: City;
 
@@ -321,19 +343,19 @@ export class PerCityModifier extends PositionModifier {
 }
 
 export interface ModifierOption {
-  label: string;
+  kind: ModifierKind;
   create: (cities: City[]) => PositionModifier;
 }
 
 export const MODIFIER_OPTIONS: ModifierOption[] = [
-  {label: 'pro Person', create: () => PER_PERSON},
-  {label: 'pro Teilnehmer', create: () => PER_PARTICIPANT},
-  {label: 'pro Leiter', create: () => PER_LEADER},
-  {label: 'pro Tag', create: () => PER_DAY},
-  {label: 'pro Nacht', create: () => PER_NIGHT},
-  {label: 'pro X Personen', create: () => new PerGroupModifier(10)},
-  {label: 'pro X Teilnehmer', create: () => new PerParticipantGroup(10)},
-  {label: 'pro Teilnehmer aus …', create: (cities: City[]) => new PerCityModifier(cities[0])},
+  {kind: 'person', create: () => PER_PERSON},
+  {kind: 'participant', create: () => PER_PARTICIPANT},
+  {kind: 'leader', create: () => PER_LEADER},
+  {kind: 'day', create: () => PER_DAY},
+  {kind: 'night', create: () => PER_NIGHT},
+  {kind: 'personGroup', create: () => new PerGroupModifier(10)},
+  {kind: 'participantGroup', create: () => new PerParticipantGroup(10)},
+  {kind: 'city', create: (cities: City[]) => new PerCityModifier(cities[0])},
 ];
 
 /** Feste Reihenfolge der Faktoren je Art, wie im Auswahlmenü. */

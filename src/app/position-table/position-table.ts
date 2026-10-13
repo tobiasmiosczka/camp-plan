@@ -15,6 +15,8 @@ import {
 } from '../calculation/position';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {EuroInputDirective} from '../euro-input';
+import {cityName, describeModifier} from '../i18n/labels';
+import {LanguageStore} from '../language-store';
 import {PlanStore, Side} from '../plan-store';
 import {ValueRange} from '../value-range';
 
@@ -56,6 +58,10 @@ export class PositionTableComponent {
 
   private readonly store = inject(PlanStore);
   private readonly snackBar = inject(MatSnackBar);
+  protected readonly t = inject(LanguageStore).messages;
+
+  protected readonly sumLabel = computed((): string =>
+    this.perParticipant() ? this.t().common.perParticipant : this.t().positions.sum);
 
   /**
    * Eine neue Liste bei jeder Änderung: Die Tabelle zeichnet ihre Zeilen nur neu, wenn sich die Liste selbst ändert.
@@ -75,6 +81,14 @@ export class PositionTableComponent {
     'position-sum',
     'position-actions'
   ];
+
+  protected describe(modifier: PositionModifier): string {
+    return describeModifier(modifier, this.t());
+  }
+
+  protected cityName(city: City): string {
+    return cityName(city, this.t());
+  }
 
   protected isGroup(modifier: PositionModifier): modifier is GroupModifier {
     return modifier instanceof GroupModifier;
@@ -117,7 +131,7 @@ export class PositionTableComponent {
     const index: number = this.store.removePosition(side, position);
     if (index >= 0) {
       this.snackBar
-        .open(`„${position.getTitle()}“ gelöscht`, 'Rückgängig', {duration: 5000})
+        .open(this.t().common.deleted(position.getTitle()), this.t().common.undo, {duration: 5000})
         .onAction()
         .subscribe((): void => this.store.restorePosition(side, position, index));
     }

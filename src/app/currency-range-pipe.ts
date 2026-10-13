@@ -9,15 +9,10 @@ import {CurrencyPipe} from '@angular/common';
 export class CurrencyRangePipe implements PipeTransform {
   private currencyPipe: CurrencyPipe = inject(CurrencyPipe);
 
-  transform(
-    range: ValueRange,
-    currencyCode: string = 'EUR',
-    display: 'symbol' | 'code' | 'symbol-narrow' = 'symbol',
-    digitsInfo: string = '1.2-2',
-    locale: string = 'de'
-  ): string {
-    const min: string | null = this.currencyPipe.transform(range.min, currencyCode, display, digitsInfo, locale);
-    const max: string | null = this.currencyPipe.transform(range.max, currencyCode, display, digitsInfo, locale);
+  /** Die Locale als Argument statt aus einem Signal: Eine reine Pipe rechnet nur neu, wenn sich ihre Argumente ändern. */
+  transform(range: ValueRange, locale: string = 'de'): string {
+    const min: string | null = this.currencyPipe.transform(range.min, 'EUR', 'symbol', '1.2-2', locale);
+    const max: string | null = this.currencyPipe.transform(range.max, 'EUR', 'symbol', '1.2-2', locale);
 
     // Gleiche Werte nur einmal anzeigen; Umbruch nur nach dem Gedankenstrich erlauben
     return min === max ? `${min}` : `${min}\u00A0– ${max}`;

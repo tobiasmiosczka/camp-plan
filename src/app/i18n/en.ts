@@ -1,5 +1,7 @@
 import {Messages} from './de';
 
+const quote = (text: string): string => `“${text}”`;
+
 export const EN: Messages = {
   locale: 'en',
   name: 'English',
@@ -9,7 +11,7 @@ export const EN: Messages = {
     to: 'to',
     ok: 'OK',
     undo: 'Undo',
-    deleted: (name: string): string => `“${name}” deleted`,
+    deleted: (name: string): string => `${quote(name)} deleted`,
     perParticipant: 'per participant',
     surplus: 'Surplus',
     debit: 'Expenses',
@@ -34,7 +36,7 @@ export const EN: Messages = {
     loadExample: 'Load example plan',
     resetAll: 'Reset all settings',
     calculating: 'Calculating',
-    opened: (file: string): string => `Opened “${file}”`,
+    opened: (file: string): string => `Opened ${quote(file)}`,
     openFailed: 'The file could not be opened.',
     pdfFailed: 'The PDF could not be created.',
     exampleLoaded: 'Example plan loaded',
@@ -66,7 +68,7 @@ export const EN: Messages = {
     remove: 'Delete city',
     add: 'Add city',
     inUse: (city: string, positions: string[]): string =>
-      `${city} is still used in ${positions.map((title: string): string => `“${title}”`).join(', ')}.`,
+      `${city} is still used in ${positions.map(quote).join(', ')}.`,
     newCity: 'New city',
   },
 
@@ -155,7 +157,7 @@ export const EN: Messages = {
     invalidCity: 'The file contains an invalid city.',
     invalidRange: (subject: string): string => `Invalid range for ${subject}.`,
     invalidModifier: 'The file contains an invalid factor.',
-    unknownModifier: (type: string): string => `The file contains an unknown factor “${type}”.`,
+    unknownModifier: (type: string): string => `The file contains an unknown factor ${quote(type)}.`,
     unknownCity: 'A factor refers to an unknown city.',
     invalidGroupSize: 'The file contains an invalid group size.',
     missingPositions: (side: string): string => `No ${side.toLowerCase()} in the file.`,

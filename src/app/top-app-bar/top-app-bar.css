@@ -1,12 +1,13 @@
 :host {
   display: block;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 /* M3 Top App Bar: Fläche wie der Hintergrund, nach dem Scrollen abgehoben */
 .top-app-bar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
   gap: 8px;
   padding: 0 4px 0 16px;
   background: var(--mat-sys-surface-container);
@@ -100,6 +101,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+/* Platz für das Häkchen auch bei der nicht gewählten Sprache, damit die Namen untereinander stehen */
+mat-icon.unselected {
+  visibility: hidden;
 }
 
 /* Der Schalter zeigt nur den Zustand; umgeschaltet wird über den ganzen Menüeintrag */

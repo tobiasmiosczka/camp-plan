@@ -6,7 +6,7 @@
   <mat-card-content>
     <div class="dimensions">
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>X-Achse</mat-label>
+        <mat-label>{{ t().charts.xAxis }}</mat-label>
         <mat-select [value]="axes().x" [compareWith]="compareDimension" (selectionChange)="setDimension('x', $event.value)">
           @for (option of dimensionOptions(); track $index) {
             <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>
@@ -14,10 +14,10 @@
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Y-Achse</mat-label>
+        <mat-label>{{ t().charts.yAxis }}</mat-label>
         <mat-select [value]="axes().y ?? 'none'" [compareWith]="compareDimension"
                     (selectionChange)="setDimension('y', $event.value === 'none' ? null : $event.value)">
-          <mat-option value="none">keine</mat-option>
+          <mat-option value="none">{{ t().charts.none }}</mat-option>
           @for (option of dimensionOptions(); track $index) {
             @if (!sameDimension(option.dimension, axes().x)) {
               <mat-option [value]="option.dimension" [disabled]="!option.varies">{{ option.label }}</mat-option>

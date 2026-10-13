@@ -1,8 +1,9 @@
-import {computed, effect, Injectable, linkedSignal, signal} from '@angular/core';
+import {computed, effect, inject, Injectable, linkedSignal, signal} from '@angular/core';
 import {
   dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromData, planFromJson, planToData
 } from './calculation/plan';
 import {City, ContextType, GroupModifier, PerCityModifier, Position, PositionModifier, Range} from './calculation/position';
+import {LanguageStore} from './language-store';
 
 /** Kontoseite einer Position. */
 export type Side = 'debit' | 'credit';
@@ -24,6 +25,9 @@ export const RANGE_MIN: Record<ContextType.DAYS | ContextType.LEADERS, number> =
 export class PlanStore {
 
   private static readonly STORAGE_KEY = 'camp-plan';
+
+  /** Für die Namen neuer Städte und Positionen. */
+  private readonly messages = inject(LanguageStore).messages;
 
   readonly plan = signal<Plan>(this.stored());
 
@@ -73,7 +77,7 @@ export class PlanStore {
   }
 
   addCity(): void {
-    this.plan().contextRange.addCity(new City('Neue Stadt', {start: 0, end: 10}));
+    this.plan().contextRange.addCity(new City(this.messages().cities.newCity, {start: 0, end: 10}));
     this.changed();
   }
 
@@ -129,7 +133,7 @@ export class PlanStore {
   }
 
   addPosition(side: Side): void {
-    this.plan()[side].push(new Position('Neue Position', 0));
+    this.plan()[side].push(new Position(this.messages().positions.newPosition, 0));
     this.changed();
   }
 
@@ -237,11 +241,20 @@ export class PlanStore {
 export function fileName(projectName: string, extension: string): string {
   const slug: string = projectName
     .toLowerCase()
-    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    // Lange Namen an einer Wortgrenze kürzen, damit Dateinamen handlich bleiben
-    .replace(/^(.{1,60})(-.*)?$/, '$1')
-    .slice(0, 60);
-  return `${slug || 'camp-plan'}-${new Date().toISOString().slice(0, 10)}.${extension}`;
+    .replace(/^-+|-+$/g, '');
+  return `${shorten(slug, 60) || 'camp-plan'}-${new Date().toISOString().slice(0, 10)}.${extension}`;
+}
+
+/** Kürzt lange Namen an einer Wortgrenze, damit Dateinamen handlich bleiben; ohne Wortgrenze hart. */
+function shorten(slug: string, max: number): string {
+  if (slug.length <= max) {
+    return slug;
+  }
+  const boundary: number = slug.lastIndexOf('-', max);
+  return slug.slice(0, boundary > 0 ? boundary : max);
 }

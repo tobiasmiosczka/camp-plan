@@ -1,7 +1,8 @@
-import {Injectable, OnDestroy} from '@angular/core';
+import {inject, Injectable, OnDestroy} from '@angular/core';
 import {EngineRequest, EngineResponse, EngineResult, evaluate} from './calculation/engine';
 import {PlanData} from './calculation/plan';
 import {Progress} from './calculation/progress';
+import {LanguageStore} from './language-store';
 
 interface Pending {
   id: number;
@@ -20,6 +21,7 @@ interface Pending {
 @Injectable({providedIn: 'root'})
 export class CalculationRunner implements OnDestroy {
 
+  private readonly messages = inject(LanguageStore).messages;
   private worker: Worker | null = null;
   private pending: Pending | null = null;
   private nextId: number = 0;
@@ -73,7 +75,7 @@ export class CalculationRunner implements OnDestroy {
       this.pending = null;
       this.worker = null;
       worker.terminate();
-      pending?.reject(new Error(event.message || 'Die Berechnung ist abgebrochen.'));
+      pending?.reject(new Error(event.message || this.messages().summary.calculationAborted));
     });
     return worker;
   }

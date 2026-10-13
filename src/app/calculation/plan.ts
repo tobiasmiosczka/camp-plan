@@ -43,6 +43,29 @@ export interface PlanData {
   credit: PositionData[];
 }
 
+/** Was an einer Datei nicht stimmt; die Oberfläche übersetzt es anhand von `code` und `subject`. */
+export type PlanFileErrorCode =
+  | 'invalidJson' | 'unknownVersion' | 'missingCities' | 'invalidCity' | 'invalidRange' | 'invalidCityRange'
+  | 'invalidModifier' | 'unknownModifier' | 'unknownCity' | 'invalidGroupSize' | 'missingPositions'
+  | 'invalidPosition';
+
+/** Bereich mit fester Bedeutung; bei Städten steht deren Name im `subject`. */
+export type RangeField = 'participants' | 'days' | 'leaders';
+
+/**
+ * Fehler beim Lesen einer Plandatei. Die Meldung ist deutsch und für Entwickler; `subject` nennt, worauf er sich
+ * bezieht: ein {@link RangeField}, eine Kontoseite ('debit' oder 'credit'), einen Stadtnamen oder eine Faktorart.
+ */
+export class PlanFileError extends Error {
+  constructor(readonly code: PlanFileErrorCode, message: string, readonly subject: string = '') {
+    super(message);
+    this.name = 'PlanFileError';
+  }
+}
+
+const RANGE_LABELS: Record<RangeField, string> = {participants: 'Teilnehmer', days: 'Tage', leaders: 'Leiter'};
+const SIDE_LABELS: Record<'debit' | 'credit', string> = {debit: 'Ausgaben', credit: 'Einnahmen'};
+
 export function defaultPlan(): Plan {
   const dinslaken = new City('Dinslaken', {start: 20, end: 60});
   const voerde = new City('Voerde', {start: 0, end: 2});
@@ -120,7 +143,7 @@ export function planFromJson(json: string): Plan {
   try {
     data = JSON.parse(json);
   } catch {
-    throw new Error('Die Datei ist kein gültiges JSON.');
+    throw new PlanFileError('invalidJson', 'Die Datei ist kein gültiges JSON.');
   }
   return planFromData(data);
 }
@@ -128,32 +151,32 @@ export function planFromJson(json: string): Plan {
 /** Prüft die Daten, bevor daraus ein Plan wird: Sie können aus einer beliebigen Datei stammen. */
 export function planFromData(data: unknown): Plan {
   if (!isObject(data) || (data['version'] !== 1 && data['version'] !== 2)) {
-    throw new Error('Die Datei ist kein CampPlan-Plan oder hat eine unbekannte Version.');
+    throw new PlanFileError('unknownVersion', 'Die Datei ist kein CampPlan-Plan oder hat eine unbekannte Version.');
   }
   const cities: City[] = data['version'] === 1
-    ? [City.others(rangeFromData(data['participants'], 'Teilnehmer'))]
+    ? [City.others(rangeFromData(data['participants'], 'participants'))]
     : citiesFromData(data['cities']);
   return {
     name: typeof data['name'] === 'string' ? data['name'] : '',
     contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.DAYS, rangeFromData(data['days'], 'Tage')],
-      [ContextType.LEADERS, rangeFromData(data['leaders'], 'Leiter')],
+      [ContextType.DAYS, rangeFromData(data['days'], 'days')],
+      [ContextType.LEADERS, rangeFromData(data['leaders'], 'leaders')],
     ]), cities),
-    debit: positionsFromData(data['debit'], 'Ausgaben', cities),
-    credit: positionsFromData(data['credit'], 'Einnahmen', cities),
+    debit: positionsFromData(data['debit'], 'debit', cities),
+    credit: positionsFromData(data['credit'], 'credit', cities),
   };
 }
 
 function citiesFromData(data: unknown): City[] {
   if (!Array.isArray(data)) {
-    throw new Error('Städte fehlen in der Datei.');
+    throw new PlanFileError('missingCities', 'Städte fehlen in der Datei.');
   }
   let othersFound: boolean = false;
   return data.map((entry: unknown): City => {
     if (!isObject(entry) || typeof entry['name'] !== 'string') {
-      throw new Error('Ungültige Stadt in der Datei.');
+      throw new PlanFileError('invalidCity', 'Ungültige Stadt in der Datei.');
     }
-    const participants: Range = rangeFromData(entry['participants'], entry['name']);
+    const participants: Range = cityRangeFromData(entry['participants'], entry['name']);
     // Ältere Dateien kennen das Kennzeichen noch nicht, nur den Namen
     if (!othersFound && (entry['others'] === true || entry['name'] === City.OTHERS_NAME)) {
       othersFound = true;
@@ -201,7 +224,7 @@ function modifierToData(modifier: PositionModifier, cities: City[]): ModifierDat
 
 function modifierFromData(data: unknown, cities: City[]): PositionModifier {
   if (!isObject(data)) {
-    throw new Error('Ungültiger Faktor in der Datei.');
+    throw new PlanFileError('invalidModifier', 'Ungültiger Faktor in der Datei.');
   }
   switch (data['type']) {
     case 'person':
@@ -221,43 +244,55 @@ function modifierFromData(data: unknown, cities: City[]): PositionModifier {
     case 'city': {
       const city: City | undefined = isNumber(data['city']) ? cities[data['city']] : undefined;
       if (!city) {
-        throw new Error('Ein Faktor verweist auf eine unbekannte Stadt.');
+        throw new PlanFileError('unknownCity', 'Ein Faktor verweist auf eine unbekannte Stadt.');
       }
       return new PerCityModifier(city);
     }
     default:
-      throw new Error(`Unbekannter Faktor „${String(data['type'])}“ in der Datei.`);
+      throw new PlanFileError('unknownModifier', `Unbekannter Faktor „${String(data['type'])}“ in der Datei.`,
+        String(data['type']));
   }
 }
 
 function withGroupSize(modifier: GroupModifier, groupSize: unknown): GroupModifier {
   if (!isNumber(groupSize)) {
-    throw new Error('Ungültige Gruppengröße in der Datei.');
+    throw new PlanFileError('invalidGroupSize', 'Ungültige Gruppengröße in der Datei.');
   }
   modifier.setGroupSize(groupSize);
   return modifier;
 }
 
-function positionsFromData(data: unknown, label: string, cities: City[]): Position[] {
+function positionsFromData(data: unknown, side: 'debit' | 'credit', cities: City[]): Position[] {
   if (!Array.isArray(data)) {
-    throw new Error(`${label} fehlen in der Datei.`);
+    throw new PlanFileError('missingPositions', `${SIDE_LABELS[side]} fehlen in der Datei.`, side);
   }
   return data.map((entry: unknown): Position => {
     if (!isObject(entry) || typeof entry['title'] !== 'string' || !isNumber(entry['amount'])
       || !Array.isArray(entry['modifiers'])) {
-      throw new Error(`Ungültige Position in ${label}.`);
+      throw new PlanFileError('invalidPosition', `Ungültige Position in ${SIDE_LABELS[side]}.`, side);
     }
     return new Position(entry['title'], entry['amount'],
       entry['modifiers'].map((modifier: unknown): PositionModifier => modifierFromData(modifier, cities)));
   });
 }
 
-function rangeFromData(data: unknown, label: string): Range {
-  if (!isObject(data) || !isNumber(data['start']) || !isNumber(data['end']) || data['start'] < 0
-    || data['start'] > data['end']) {
-    throw new Error(`Ungültiger Bereich für ${label}.`);
+function rangeFromData(data: unknown, field: RangeField): Range {
+  if (!isRange(data)) {
+    throw new PlanFileError('invalidRange', `Ungültiger Bereich für ${RANGE_LABELS[field]}.`, field);
   }
-  return {start: data['start'], end: data['end']};
+  return {start: data.start, end: data.end};
+}
+
+function cityRangeFromData(data: unknown, city: string): Range {
+  if (!isRange(data)) {
+    throw new PlanFileError('invalidCityRange', `Ungültiger Bereich für ${city}.`, city);
+  }
+  return {start: data.start, end: data.end};
+}
+
+function isRange(data: unknown): data is Range {
+  return isObject(data) && isNumber(data['start']) && isNumber(data['end']) && data['start'] >= 0
+    && data['start'] <= data['end'];
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

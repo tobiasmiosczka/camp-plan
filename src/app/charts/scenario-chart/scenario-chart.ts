@@ -7,16 +7,19 @@ import {Data} from 'plotly.js-dist-min';
 import {City, ContextType} from '../../calculation/position';
 import {Dimension, groupKey, sameDimension, ScenarioResults} from '../../calculation/scenarios';
 import {PdfExport} from '../../pdf-export';
-import {ChartSource, formatEuro, ReportChart} from '../../report';
+import {cityName} from '../../i18n/labels';
+import {Messages} from '../../i18n/de';
+import {LanguageStore} from '../../language-store';
+import {ChartSource, ReportChart} from '../../report';
 import {PlanStore} from '../../plan-store';
 import {ThemeStore} from '../../theme-store';
 import {ValueRange} from '../../value-range';
-import {ChartStyle, Figure, NO_SCENARIOS, reportChart, withAlpha} from '../chart-style';
+import {ChartStyle, Figure, reportChart, withAlpha} from '../chart-style';
 
-const DIMENSION_LABELS: Record<ContextType, string> = {
-  [ContextType.PARTICIPANTS]: 'Teilnehmer gesamt',
-  [ContextType.LEADERS]: 'Leiter',
-  [ContextType.DAYS]: 'Tage',
+const DIMENSION_LABELS: Record<ContextType, 'participantsTotal' | 'leaders' | 'days'> = {
+  [ContextType.PARTICIPANTS]: 'participantsTotal',
+  [ContextType.LEADERS]: 'leaders',
+  [ContextType.DAYS]: 'days',
 };
 
 interface DimensionOption {
@@ -49,16 +52,20 @@ export class ScenarioChart implements ChartSource {
 
   private readonly store = inject(PlanStore);
   private readonly theme = inject(ThemeStore);
+  protected readonly t = inject(LanguageStore).messages;
 
   protected readonly dimensionOptions = computed((): DimensionOption[] => {
     // Städte werden an Ort und Stelle umbenannt; erst dieser Zähler macht das sichtbar
     this.store.labels();
     const results: ScenarioResults = this.results();
+    const t: Messages = this.t();
     const types: Dimension[] = [ContextType.PARTICIPANTS, ContextType.LEADERS, ContextType.DAYS]
       .map((type: ContextType): Dimension => ({kind: 'type', type}));
     const cities: Dimension[] = this.cities().map((city: City): Dimension => ({kind: 'city', city}));
     return [...types, ...cities].map((dimension: Dimension): DimensionOption => ({
-      label: dimension.kind === 'type' ? DIMENSION_LABELS[dimension.type] : `Teilnehmer aus ${dimension.city.getName()}`,
+      label: dimension.kind === 'type'
+        ? t.common[DIMENSION_LABELS[dimension.type]]
+        : t.charts.participantsFrom(cityName(dimension.city, t)),
       dimension,
       varies: results.domain(dimension).length > 1,
     }));
@@ -85,7 +92,7 @@ export class ScenarioChart implements ChartSource {
   protected readonly graph = computed((): Figure => {
     // Die Farben kommen aus dem Theme und werden beim Aufbau ausgelesen
     this.theme.dark();
-    return this.figure(new ChartStyle());
+    return this.figure(new ChartStyle(this.t()));
   });
 
   protected readonly sameDimension = sameDimension;
@@ -100,7 +107,7 @@ export class ScenarioChart implements ChartSource {
 
   /** Dasselbe Diagramm in hellen Farben für die PDF. */
   printImage(): Promise<ReportChart | null> {
-    return reportChart(this.figure(new ChartStyle(true)), 0.6);
+    return reportChart(this.figure(new ChartStyle(this.t(), true)), 0.6);
   }
 
   /** Wechselt eine Achse; die Szenarien werden dafür nur neu gruppiert, nicht neu berechnet. */
@@ -118,10 +125,11 @@ export class ScenarioChart implements ChartSource {
   }
 
   private figure(style: ChartStyle): Figure {
-    const valueLabel: string = this.perParticipant() ? 'Überschuss pro Teilnehmer' : 'Überschuss';
+    const t: Messages = style.t;
+    const valueLabel: string = t.charts.surplus(this.perParticipant());
     const {x, y}: Axes = this.axes();
     if (this.results().isEmpty()) {
-      return {data: [], layout: style.base(), title: valueLabel, subtitle: NO_SCENARIOS};
+      return {data: [], layout: style.base(), title: valueLabel, subtitle: t.charts.noScenarios};
     }
     // Achsen mit nur einem Wert tragen nichts zum Vergleich bei
     const selected: Dimension[] = [x, y]
@@ -137,15 +145,13 @@ export class ScenarioChart implements ChartSource {
       return {
         ...this.surface(style, shown[0], shown[1], groups, valueLabel, hasBand),
         title,
-        subtitle: hasBand
-          ? 'Zwei Flächen: Minimum und Maximum über alle übrigen Größen; flache Ebene = 0 €'
-          : 'Flache Ebene = 0 €',
+        subtitle: hasBand ? t.charts.surfaceBand : t.charts.surfaceFlat,
       };
     }
     const chart = this.results().domain(shown[0]).length > 8
       ? this.line(style, shown[0], groups, valueLabel, hasBand)
       : this.bars(style, shown[0], groups, valueLabel, hasBand);
-    return {...chart, title, subtitle: hasBand ? 'Spanne von Minimum bis Maximum über alle übrigen Größen' : ''};
+    return {...chart, title, subtitle: hasBand ? t.charts.band : ''};
   }
 
   private surface(style: ChartStyle, x: Dimension, y: Dimension, groups: Map<number, ValueRange>, valueLabel: string,
@@ -163,7 +169,7 @@ export class ScenarioChart implements ChartSource {
     const cmin: number = Math.min(0, ...all.map((group: ValueRange): number => group.min));
     const cmax: number = Math.max(0, ...all.map((group: ValueRange): number => group.max));
     const hover = (name: string): string =>
-      `${xLabel}: %{x}<br>${yLabel}: %{y}<br>${name}: %{z:,.2f} €<extra></extra>`;
+      `${xLabel}: %{x}<br>${yLabel}: %{y}<br>${name}: ${style.euro('%{z:,.2f}')}<extra></extra>`;
     const colorscale: [number, string][] = this.surfaceColorscale(style, cmin, cmax);
     const surface = (name: string, pick: (r: ValueRange) => number, showscale: boolean, opacity: number): Data => ({
       name,
@@ -175,7 +181,7 @@ export class ScenarioChart implements ChartSource {
       type: 'surface',
       colorscale,
       showscale,
-      colorbar: {ticksuffix: ' €', outlinewidth: 0, thickness: 16},
+      colorbar: {...style.euroTicks(), outlinewidth: 0, thickness: 16},
       cmin,
       cmax,
     });
@@ -183,9 +189,9 @@ export class ScenarioChart implements ChartSource {
 
     return {
       data: [
-        surface(hasBand ? 'Minimum' : valueLabel, (r: ValueRange): number => r.min, true, 0.9),
+        surface(hasBand ? style.t.charts.minimum : valueLabel, (r: ValueRange): number => r.min, true, 0.9),
         // Das Maximum durchscheinender, damit das Minimum darunter sichtbar bleibt
-        ...(hasBand ? [surface('Maximum', (r: ValueRange): number => r.max, false, 0.55)] : []),
+        ...(hasBand ? [surface(style.t.charts.maximum,   (r: ValueRange): number => r.max, false, 0.55)] : []),
         {
           name: '0',
           x: [xValues[0], xValues[xValues.length - 1]],
@@ -208,7 +214,7 @@ export class ScenarioChart implements ChartSource {
           xaxis: {...style.sceneAxis(), title: {text: xLabel}, ...(xValues.length <= 10 ? {dtick: 1} : {})},
           yaxis: {...style.sceneAxis(), title: {text: yLabel}, ...(yValues.length <= 10 ? {dtick: 1} : {})},
           zaxis: {
-            ...style.sceneAxis(), ticksuffix: ' €', separatethousands: true, tickformat: ',.0f', title: {text: valueLabel}
+            ...style.sceneAxis(), ...style.euroTicks(), separatethousands: true, tickformat: ',.0f', title: {text: valueLabel}
           },
         }
       },
@@ -244,15 +250,15 @@ export class ScenarioChart implements ChartSource {
 
     return {
       data: hasBand ? [{
-        name: 'Minimum',
+        name: style.t.charts.minimum,
         x: xValues,
         y: mins,
         type: 'scatter',
         mode: 'lines',
         line: {color: primary, width: 2},
-        hovertemplate: 'Minimum: %{y:,.2f} €<extra></extra>'
+        hovertemplate: `${style.t.charts.minimum}: ${style.euro('%{y:,.2f}')}<extra></extra>`
       }, {
-        name: 'Maximum',
+        name: style.t.charts.maximum,
         x: xValues,
         y: maxs,
         type: 'scatter',
@@ -260,7 +266,7 @@ export class ScenarioChart implements ChartSource {
         fill: 'tonexty',
         fillcolor: withAlpha(primary, 0.2),
         line: {color: primary, width: 2, dash: 'dot'},
-        hovertemplate: 'Maximum: %{y:,.2f} €<extra></extra>'
+        hovertemplate: `${style.t.charts.maximum}: ${style.euro('%{y:,.2f}')}<extra></extra>`
       }] : [{
         name: valueLabel,
         x: xValues,
@@ -268,7 +274,7 @@ export class ScenarioChart implements ChartSource {
         type: 'scatter',
         mode: 'lines',
         line: {color: primary, width: 2},
-        hovertemplate: '%{y:,.2f} €<extra></extra>'
+        hovertemplate: `${style.euro('%{y:,.2f}')}<extra></extra>`
       }],
       layout: {
         ...style.cartesian(valueLabel),
@@ -292,16 +298,16 @@ export class ScenarioChart implements ChartSource {
       y: ys,
       type: 'bar',
       marker: {color: ys.map((y: number | null): string => color(y ?? 0))},
-      text: ys.map((y: number | null): string => y === null ? '' : formatEuro(y)),
+      text: ys.map((y: number | null): string => y === null ? '' : style.formatEuro(y)),
       textposition: 'outside',
       cliponaxis: false,
-      hovertemplate: `${name}: %{y:,.2f} €<extra></extra>`
+      hovertemplate: `${name}: ${style.euro('%{y:,.2f}')}<extra></extra>`
     });
 
     return {
       data: hasBand ? [
-        bar('Minimum', mins, (y: number): string => y < 0 ? error : withAlpha(primary, 0.5)),
-        bar('Maximum', maxs, (y: number): string => y < 0 ? error : primary),
+        bar(style.t.charts.minimum, mins, (y: number): string => y < 0 ? error : withAlpha(primary, 0.5)),
+        bar(style.t.charts.maximum, maxs, (y: number): string => y < 0 ? error : primary),
       ] : [
         bar(valueLabel, mins, (y: number): string => y < 0 ? error : primary),
       ],
