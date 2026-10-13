@@ -1,0 +1,30 @@
+<mat-card appearance="outlined" class="settings">
+  <mat-card-header>
+    <mat-card-title>{{ t().settings.title }}</mat-card-title>
+    <mat-card-subtitle>{{ t().settings.subtitle }}</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <div class="range-grid">
+      @for (row of contextRows; track row.type) {
+        <fieldset class="range">
+          <legend>
+            <mat-icon aria-hidden="true">{{ row.icon }}</mat-icon>
+            {{ t().common[row.label] }}
+          </legend>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>{{ t().common.from }}</mat-label>
+            <input matInput type="number" [min]="row.min" step="1"
+                   [ngModel]="contextRange().get(row.type).start"
+                   (ngModelChange)="setRange(row.type, 'start', $event)"/>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>{{ t().common.to }}</mat-label>
+            <input matInput type="number" [min]="contextRange().get(row.type).start" step="1"
+                   [ngModel]="contextRange().get(row.type).end"
+                   (ngModelChange)="setRange(row.type, 'end', $event)"/>
+          </mat-form-field>
+        </fieldset>
+      }
+    </div>
+  </mat-card-content>
+</mat-card>

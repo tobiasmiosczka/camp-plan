@@ -50,17 +50,3 @@ export interface Report {
   chart: ReportChart | null;
   distribution: ReportChart | null;
 }
-
-export function formatEuro(value: number, locale: string = 'de'): string {
-  return value.toLocaleString(locale, {style: 'currency', currency: 'EUR'});
-}
-
-export function formatEuroRange(range: ValueRange, locale: string = 'de'): string {
-  const min: string = formatEuro(range.min, locale);
-  const max: string = formatEuro(range.max, locale);
-  return min === max ? min : `${min} – ${max}`;
-}
-
-export function formatRange(range: Range): string {
-  return range.start === range.end ? `${range.start}` : `${range.start}–${range.end}`;
-}

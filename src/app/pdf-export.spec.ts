@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { PdfExport } from './pdf-export';
 import { ChartSource, ReportChart } from './report';
 import { PlanStore } from './plan-store';
+import { useTestPlan } from './testing/test-plan';
 
 function chart(title: string): ChartSource {
   const image: ReportChart = {title, subtitle: '', image: 'data:image/jpeg;base64,', aspect: 0.5};
@@ -16,6 +17,7 @@ describe('PdfExport', () => {
   beforeEach(async () => {
     pdf = TestBed.inject(PdfExport);
     store = TestBed.inject(PlanStore);
+    useTestPlan();
     await TestBed.inject(ApplicationRef).whenStable();
   });
 
@@ -25,14 +27,15 @@ describe('PdfExport', () => {
 
     const report = await pdf.report();
 
-    expect(report.name).toBe('Beispiel-Zeltlager');
-    expect(report.scenarioCount).toBe(15498);
-    expect(report.balance.min).toBeCloseTo(478.7, 9);
-    expect(report.balance.max).toBeCloseTo(3078.1, 9);
-    expect(report.participants).toEqual({start: 20, end: 66});
-    expect(report.debit[0]).toEqual({
-      title: 'Verpflegung', amount: 7, factors: 'pro Person × pro Tag', sum: {min: 308, max: 1554},
-    });
+    expect(report.name).toBe('Testlager');
+    expect(report.scenarioCount).toBe(6);
+    expect(report.balance).toEqual({min: -100, max: 10});
+    expect(report.deficitShare).toBeCloseTo(5 / 6, 12);
+    expect(report.participants).toEqual({start: 1, end: 3});
+    expect(report.debit).toEqual([
+      {title: 'Halle', amount: 100, factors: '', sum: {min: 100, max: 100}},
+      {title: 'Essen', amount: 10, factors: 'pro Person × pro Tag', sum: {min: 40, max: 100}},
+    ]);
     expect(report.chart?.title).toBe('Überschuss');
     expect(report.distribution?.title).toBe('Verteilung');
     expect(pdf.chartsRequested()).toBe(false);
@@ -42,7 +45,8 @@ describe('PdfExport', () => {
     pdf.registerChart('scenario', chart('Überschuss'));
     pdf.registerChart('distribution', chart('Verteilung'));
 
-    store.setAmount(store.plan().credit.at(-1)!, 0);
+    // Ohne Beitrag bleibt nur der Zuschuss: in jedem Szenario ein Defizit
+    store.setAmount(store.plan().credit[0], 0);
     const report = await pdf.report();
 
     expect(report.balance.min).toBeLessThan(0);

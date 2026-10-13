@@ -1,3 +1,4 @@
+import {formatInteger} from '../format';
 import {Messages} from './de';
 
 const quote = (text: string): string => `“${text}”`;
@@ -21,7 +22,7 @@ export const EN: Messages = {
     participantsTotal: 'Total participants',
     city: 'City',
     others: 'Other',
-    scenarios: (count: number): string => `${count.toLocaleString('en')} ${count === 1 ? 'scenario' : 'scenarios'}`,
+    scenarios: (count: number): string => `${formatInteger(count, 'en')} ${count === 1 ? 'scenario' : 'scenarios'}`,
   },
 
   topBar: {

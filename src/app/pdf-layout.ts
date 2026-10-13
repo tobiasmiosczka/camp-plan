@@ -1,6 +1,7 @@
 import {jsPDF} from 'jspdf';
 import {autoTable} from 'jspdf-autotable';
-import {formatEuro, formatEuroRange, Report, ReportChart, ReportCity, ReportPosition} from './report';
+import {formatEuro, formatEuroRange, formatInteger, formatPercent} from './format';
+import {Report, ReportChart, ReportCity, ReportPosition} from './report';
 import {DE, Messages} from './i18n/de';
 import {Range} from './calculation/position';
 import {ValueRange} from './value-range';
@@ -123,7 +124,7 @@ export function renderPdf(report: Report, piggyBank: string | null = null, t: Me
 
   // Kurzfassung ganz oben; der Überschuss als erste, hervorgehobene Zeile
   const negative: boolean = report.balance.min < 0;
-  const share: string = report.deficitShare.toLocaleString(t.locale, {style: 'percent', maximumFractionDigits: 1});
+  const share: string = formatPercent(report.deficitShare, t.locale);
   heading(t.pdf.overview);
   table({
     head: [[t.pdf.key, t.pdf.value]],
@@ -131,7 +132,7 @@ export function renderPdf(report: Report, piggyBank: string | null = null, t: Me
       [per ? `${t.common.surplus}${per}` : t.pdf.surplusTotal, euroRange(report.balance)],
       [`${t.common.credit}${per}`, euroRange(report.creditTotal)],
       [`${t.common.debit}${per}`, euroRange(report.debitTotal)],
-      [t.pdf.scenarios, report.scenarioCount.toLocaleString(t.locale)],
+      [t.pdf.scenarios, formatInteger(report.scenarioCount, t.locale)],
       [t.pdf.deficitScenarios, share],
     ],
     columnStyles: {0: {cellWidth: 90}},

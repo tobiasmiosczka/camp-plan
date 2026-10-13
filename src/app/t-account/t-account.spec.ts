@@ -1,6 +1,4 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CurrencyPipe, registerLocaleData } from '@angular/common';
-import localeDe from '@angular/common/locales/de';
 import { LanguageStore } from '../language-store';
 import { TAccount } from './t-account';
 
@@ -9,10 +7,8 @@ describe('TAccount', () => {
   const text = (): string => fixture.nativeElement.textContent.replace(/\s+/g, ' ');
 
   beforeEach(async () => {
-    registerLocaleData(localeDe);
     await TestBed.configureTestingModule({
       imports: [TAccount],
-      providers: [CurrencyPipe],
     })
       .compileComponents();
     fixture = TestBed.createComponent(TAccount);

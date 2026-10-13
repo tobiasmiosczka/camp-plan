@@ -1,3 +1,5 @@
+import {formatInteger} from '../format';
+
 /**
  * Alle Texte der Oberfläche und der PDF auf Deutsch. Diese Datei gibt die Struktur vor: {@link Messages} wird aus ihr
  * abgeleitet, jede weitere Sprache muss dieselben Schlüssel mit denselben Parametern liefern.
@@ -7,7 +9,7 @@
 const quote = (text: string): string => `„${text}“`;
 
 export const DE = {
-  /** Locale-ID für Angular-Pipes und Intl. */
+  /** Locale-ID für Intl, siehe format.ts. */
   locale: 'de',
   /** Name der Sprache in ihr selbst, wie er in der Sprachauswahl steht. */
   name: 'Deutsch',
@@ -28,7 +30,7 @@ export const DE = {
     city: 'Stadt',
     /** Anzeigename der Sammelstadt für alle Teilnehmenden ohne eigene Stadt. */
     others: 'Sonstige',
-    scenarios: (count: number): string => `${count.toLocaleString('de')} Szenarien`,
+    scenarios: (count: number): string => `${formatInteger(count, 'de')} Szenarien`,
   },
 
   topBar: {

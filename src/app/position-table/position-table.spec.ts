@@ -1,5 +1,3 @@
-import { CurrencyPipe, registerLocaleData } from '@angular/common';
-import localeDe from '@angular/common/locales/de';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PositionTableComponent } from './position-table';
 import { City, Position } from '../calculation/position';
@@ -9,10 +7,8 @@ describe('PositionTable', () => {
   let fixture: ComponentFixture<PositionTableComponent>;
 
   beforeEach(async () => {
-    registerLocaleData(localeDe);
     await TestBed.configureTestingModule({
       imports: [PositionTableComponent],
-      providers: [CurrencyPipe],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PositionTableComponent);

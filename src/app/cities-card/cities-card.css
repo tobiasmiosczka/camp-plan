@@ -1,0 +1,29 @@
+:host {
+  display: block;
+}
+
+mat-card {
+  height: 100%;
+}
+
+.city-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.city {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.city-name {
+  width: 240px;
+}
+
+.city-count {
+  width: 110px;
+}

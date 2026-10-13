@@ -2,10 +2,6 @@
   display: block;
 }
 
-mat-card-content {
-  padding-top: 16px;
-}
-
 .dimensions {
   display: flex;
   flex-wrap: wrap;

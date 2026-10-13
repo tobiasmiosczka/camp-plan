@@ -1,0 +1,26 @@
+<mat-card appearance="outlined" class="summary" [class.negative]="!loading() && balance().min < 0"
+          [attr.aria-busy]="loading()">
+  <mat-card-content>
+    <div class="summary-label">{{ t().summary.title(perParticipant()) }}</div>
+    <!-- Jede Zeile steht immer da, ob geladen wird oder nicht: Die Karte behält ihre Höhe und nichts verrutscht -->
+    <div class="summary-value">
+      @if (loading()) {
+        <span class="skeleton summary-value-skeleton"></span>
+        <span class="visually-hidden">{{ t().summary.calculating }}</span>
+      } @else {
+        {{ balance() | currencyRange: t().locale }}
+      }
+    </div>
+    <div class="summary-scenarios">
+      @if (loading()) {
+        <span class="skeleton"></span>
+      } @else {
+        {{ t().common.scenarios(scenarioCount()) }}
+      }
+    </div>
+    <div class="summary-hint" [class.reserved]="loading() || balance().min >= 0">
+      <mat-icon aria-hidden="true">warning</mat-icon>
+      {{ t().summary.deficit }}
+    </div>
+  </mat-card-content>
+</mat-card>

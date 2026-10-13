@@ -57,6 +57,11 @@
   }
 }
 
+/* Abstand zwischen Kopf und Inhalt einer Karte, in allen Karten der App gleich */
+mat-card-content {
+  padding-top: 16px;
+}
+
 /* Für Screenreader lesbar, aber unsichtbar */
 .visually-hidden {
   position: absolute;

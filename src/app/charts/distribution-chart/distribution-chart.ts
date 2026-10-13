@@ -7,6 +7,7 @@ import {Histogram, histogram, ScenarioResults} from '../../calculation/scenarios
 import {PdfExport} from '../../pdf-export';
 import {Messages} from '../../i18n/de';
 import {LanguageStore} from '../../language-store';
+import {formatPercent} from '../../format';
 import {ChartSource, ReportChart} from '../../report';
 import {ThemeStore} from '../../theme-store';
 import {ChartStyle, Figure, reportChart} from '../chart-style';
@@ -73,7 +74,7 @@ export class DistributionChart implements ChartSource {
 
     const primary: string = style.color('--mat-sys-primary');
     const error: string = style.color('--mat-sys-error');
-    const share = (part: number): string => part.toLocaleString(t.locale, {style: 'percent', maximumFractionDigits: 1});
+    const share = (part: number): string => formatPercent(part, t.locale);
     const percent = (count: number): string => share(count / total);
     const facts: string[] = [t.common.scenarios(total), t.charts.mean(style.formatEuro(mean))];
     if (metric === 'balance') {

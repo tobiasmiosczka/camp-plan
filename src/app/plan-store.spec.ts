@@ -1,12 +1,14 @@
 import {TestBed} from '@angular/core/testing';
 import {ContextType} from './calculation/position';
 import {fileName, PlanStore} from './plan-store';
+import {useTestPlan} from './testing/test-plan';
 
 describe('PlanStore', () => {
   let store: PlanStore;
 
   beforeEach(() => {
     store = TestBed.inject(PlanStore);
+    useTestPlan();
   });
 
   it('counts every change to the plan', () => {
@@ -44,19 +46,19 @@ describe('PlanStore', () => {
 
   it('restores a removed position at its old place', () => {
     const positions = store.plan().credit;
-    const position = positions[2];
+    const position = positions[0];
 
     const index = store.removePosition('credit', position);
     expect(positions).not.toContain(position);
 
     store.restorePosition('credit', position, index);
-    expect(positions[2]).toBe(position);
+    expect(positions[0]).toBe(position);
   });
 
   it('knows which positions still use a city', () => {
-    const [dinslaken, , , others] = store.plan().contextRange.getCities();
+    const [aachen, , others] = store.plan().contextRange.getCities();
 
-    expect(store.usersOf(dinslaken).map(position => position.getTitle())).toEqual(['Förderung Teilnehmer Dinslaken']);
+    expect(store.usersOf(aachen).map(position => position.getTitle())).toEqual(['Zuschuss Aachen']);
     expect(store.usersOf(others)).toEqual([]);
   });
 
@@ -77,7 +79,7 @@ describe('PlanStore', () => {
 
     store.setRange(ContextType.DAYS, 'end', 9);
 
-    expect(data.days.end).toBe(3);
+    expect(data.days.end).toBe(2);
     expect(store.data().days.end).toBe(9);
   });
 });

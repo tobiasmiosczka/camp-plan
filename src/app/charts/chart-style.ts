@@ -2,7 +2,8 @@ import {PlotlyService} from 'angular-plotly.js';
 import * as PlotlyJS from 'plotly.js-dist-min';
 import {Data, Layout, LayoutAxis} from 'plotly.js-dist-min';
 import {Messages} from '../i18n/de';
-import {formatEuro, ReportChart} from '../report';
+import {euroFirst, formatEuro, separators} from '../format';
+import {ReportChart} from '../report';
 
 // Hier statt in der App-Konfiguration: Nur die Diagramme importieren diese Datei, und die werden erst bei Bedarf
 // geladen. So landet Plotly, der mit Abstand größte Teil der App, nicht im Startpaket.
@@ -26,7 +27,7 @@ export class ChartStyle {
   private readonly euroFirst: boolean;
 
   constructor(readonly t: Messages, private readonly print: boolean = false) {
-    this.euroFirst = formatEuro(1, t.locale).startsWith('€');
+    this.euroFirst = euroFirst(t.locale);
   }
 
   /** Ein Betrag in einem Plotly-Platzhalter, z. B. `euro('%{y:,.2f}')`. */
@@ -114,13 +115,6 @@ export class ChartStyle {
       showbackground: false,
     };
   }
-}
-
-/** Dezimalzeichen und Tausendertrenner der Sprache, in dieser Reihenfolge, wie Plotly sie erwartet. */
-function separators(locale: string): string {
-  const parts: Intl.NumberFormatPart[] = new Intl.NumberFormat(locale).formatToParts(1234.5);
-  const part = (type: string): string => parts.find((p: Intl.NumberFormatPart): boolean => p.type === type)?.value ?? '';
-  return part('decimal') + part('group');
 }
 
 export function withAlpha(rgb: string, alpha: number): string {

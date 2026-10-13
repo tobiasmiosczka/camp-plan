@@ -1,15 +1,7 @@
 import {Directive, effect, ElementRef, forwardRef, HostListener, inject} from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
+import {formatAmount} from './format';
 import {LanguageStore} from './language-store';
-
-/** Formatiert einen Betrag mit zwei Nachkommastellen, deutsch z. B. „1.234,50“, englisch „1,234.50“. */
-export function formatEuro(value: number | null, grouping: boolean = true, locale: string = 'de'): string {
-  return value === null ? '' : value.toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: grouping
-  });
-}
 
 /** Liest einen eingetippten Betrag; Komma und Punkt gelten beide als Dezimaltrenner. */
 export function parseEuro(text: string): number | null | undefined {
@@ -87,6 +79,6 @@ export class EuroInputDirective implements ControlValueAccessor {
   }
 
   private format(value: number | null, grouping: boolean = true): string {
-    return formatEuro(value, grouping, this.messages().locale);
+    return formatAmount(value, this.messages().locale, grouping);
   }
 }

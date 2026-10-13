@@ -1,0 +1,61 @@
+:host {
+  display: block;
+}
+
+/* Die zentrale Kennzahl als tonale Karte (M3: Hervorhebung über Farbrollen statt über Rahmen) */
+.summary {
+  height: 100%;
+  --mat-card-outlined-container-color: var(--mat-sys-secondary-container);
+  --mat-card-outlined-outline-color: transparent;
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.summary.negative {
+  --mat-card-outlined-container-color: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+mat-card-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+  box-sizing: border-box;
+  /* Der Betrag richtet seine Schriftgröße nach der Kartenbreite */
+  container-type: inline-size;
+}
+
+.summary-label {
+  font: var(--mat-sys-title-medium);
+}
+
+/* Immer einzeilig, sonst wäre die Karte je nach Betrag unterschiedlich hoch; in schmalen Karten wird die Schrift kleiner */
+.summary-value {
+  font: var(--mat-sys-headline-medium);
+  font-size: min(var(--mat-sys-headline-medium-size), 7.5cqi);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-scenarios {
+  font: var(--mat-sys-body-medium);
+}
+
+.summary-value-skeleton {
+  width: 14em;
+}
+
+.summary-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: var(--mat-sys-body-medium);
+}
+
+/* Platz gehalten, aber unsichtbar (auch für Screenreader), solange es kein Defizit gibt */
+.summary-hint.reserved {
+  visibility: hidden;
+}

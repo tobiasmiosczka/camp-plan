@@ -28,7 +28,8 @@ function sourceFiles(dir: string = SRC): string[] {
   return readdirSync(dir).flatMap((name: string): string[] => {
     const path: string = join(dir, name);
     if (statSync(path).isDirectory()) {
-      return sourceFiles(path);
+      // Hilfen für Tests gehören nicht zur App
+      return name === 'testing' ? [] : sourceFiles(path);
     }
     return name.endsWith('.ts') && !name.endsWith('.spec.ts') && name !== 'test-setup.ts' ? [path] : [];
   });

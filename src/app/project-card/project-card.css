@@ -1,0 +1,24 @@
+:host {
+  display: block;
+}
+
+/* So hoch wie die Zeile im Seitenraster, auch wenn die Karte daneben höher ist */
+mat-card {
+  height: 100%;
+}
+
+mat-card-content {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.project-name {
+  width: 100%;
+}
+
+/* Der Name ist die Überschrift des Projekts */
+.project-name input {
+  font: var(--mat-sys-headline-small);
+}

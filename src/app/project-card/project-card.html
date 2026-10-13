@@ -1,0 +1,9 @@
+<mat-card appearance="outlined" class="project">
+  <mat-card-content>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="project-name">
+      <mat-label>{{ t().project.name }}</mat-label>
+      <input matInput [placeholder]="t().project.placeholder" maxlength="120" autocomplete="off"
+             [ngModel]="name()" (ngModelChange)="rename($event)"/>
+    </mat-form-field>
+  </mat-card-content>
+</mat-card>
