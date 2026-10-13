@@ -1,0 +1,46 @@
+<mat-card appearance="outlined">
+  <mat-card-content>
+    <div class="t-account">
+      <h2 class="t-head debit">
+        <mat-icon aria-hidden="true">trending_down</mat-icon>
+        {{ t().common.debit }}
+      </h2>
+      <h2 class="t-head credit">
+        <mat-icon aria-hidden="true">trending_up</mat-icon>
+        {{ t().common.credit }}
+      </h2>
+
+      <div class="t-body debit">
+        <app-position-table side="debit" [positions]="plan().debit" [sums]="positionSums()"
+                            [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                            [loading]="loading()"></app-position-table>
+      </div>
+      <div class="t-body credit">
+        <app-position-table side="credit" [positions]="plan().credit" [sums]="positionSums()"
+                            [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                            [loading]="loading()"></app-position-table>
+      </div>
+
+      <div class="t-total debit">
+        <span>{{ t().positions.total(t().common.debit) }}</span>
+        <span class="t-total-value">
+          @if (loading()) {
+            <span class="skeleton"></span>
+          } @else {
+            {{ debitTotal() | currencyRange: t().locale }}
+          }
+        </span>
+      </div>
+      <div class="t-total credit">
+        <span>{{ t().positions.total(t().common.credit) }}</span>
+        <span class="t-total-value">
+          @if (loading()) {
+            <span class="skeleton"></span>
+          } @else {
+            {{ creditTotal() | currencyRange: t().locale }}
+          }
+        </span>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

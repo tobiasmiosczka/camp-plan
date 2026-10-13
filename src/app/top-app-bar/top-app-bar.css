@@ -1,0 +1,112 @@
+:host {
+  display: block;
+}
+
+/* M3 Top App Bar: Fläche wie der Hintergrund, nach dem Scrollen abgehoben */
+.top-app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  gap: 8px;
+  padding: 0 4px 0 16px;
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+}
+
+/* Auf der Unterkante der Leiste statt darunter: Erscheinen und Verschwinden verschieben nichts */
+.calculation-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.logo {
+  position: relative;
+  display: inline-flex;
+  color: var(--mat-sys-primary);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Die Münze fällt in den Schlitz des Symbols „savings“ (24 px): Er liegt bei x ≈ 10,5 und y ≈ 7.
+ * Gold in beiden Farbschemata: Eine Münze sieht immer so aus.
+ */
+.coin {
+  position: absolute;
+  top: 2px;
+  left: 7px;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border: 1px solid #a8780a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff3b0, #f2c12e 60%);
+  pointer-events: none;
+  animation: coin-drop 600ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+
+/* Fällt beschleunigt, dreht sich dabei und verschwindet hochkant im Schlitz */
+@keyframes coin-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) scaleX(1);
+  }
+  15% {
+    opacity: 1;
+  }
+  35% {
+    transform: translateY(-15px) scaleX(0.25);
+  }
+  55% {
+    transform: translateY(-8px) scaleX(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0) scaleX(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.2, 0.3);
+  }
+}
+
+.per-participant {
+  margin-right: 8px;
+}
+
+.compact-only {
+  display: none;
+}
+
+/* Kompakte Fensterklasse (< 600 dp) */
+@media (max-width: 599px) {
+  .wide-only {
+    display: none;
+  }
+
+  .compact-only {
+    display: block;
+  }
+}
+
+.title {
+  font: var(--mat-sys-title-large);
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Der Schalter zeigt nur den Zustand; umgeschaltet wird über den ganzen Menüeintrag */
+.menu-toggle mat-slide-toggle {
+  pointer-events: none;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
