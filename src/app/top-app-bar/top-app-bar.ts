@@ -10,13 +10,13 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { fileErrorMessage } from '../i18n/labels';
-import { Language, LANGUAGES, LanguageStore } from '../language-store';
-import { Plan } from '../calculation/plan';
-import { PlanStore } from '../plan-store';
-import { Undo } from '../undo';
-import { ThemeStore } from '../theme-store';
-import { PdfExport } from '../pdf-export';
-import { PlanCalculation } from '../plan-calculation';
+import { Language, LANGUAGES, LanguageStore } from '../stores/language-store';
+import {Plan} from '../calculation/plan';
+import { PlanStore } from '../stores/plan-store';
+import { Undo } from '../stores/undo';
+import { ThemeStore } from '../stores/theme-store';
+import { PdfExport } from '../pdf/pdf-export';
+import { PlanCalculation } from '../plan-calculation/plan-calculation';
 
 @Component({
   imports: [

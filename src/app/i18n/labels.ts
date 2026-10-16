@@ -1,5 +1,6 @@
 import {ContextType} from '../calculation/context';
-import {PlanFileError, PlanFileProblem, Side} from '../calculation/plan';
+import {Side} from '../calculation/plan';
+import {PlanFileError, PlanFileProblem} from '../calculation/plan-file';
 import {City} from '../calculation/city';
 import {Modifier} from '../calculation/modifiers';
 import {Messages} from './de';

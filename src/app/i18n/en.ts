@@ -1,4 +1,4 @@
-import {formatInteger} from '../format';
+import {formatInteger} from '../format/format';
 import {Messages} from './de';
 
 const quote = (text: string): string => `“${text}”`;

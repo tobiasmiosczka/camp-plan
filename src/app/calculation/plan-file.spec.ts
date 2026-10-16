@@ -2,8 +2,10 @@ import {City, newCity} from './city';
 import {Context} from './context';
 import {PER_NIGHT, perCity, perParticipantGroup, perPersonGroup} from './modifiers';
 import {newPosition, Position, positionSum} from './position';
-import {defaultPlan, emptyPlan, Plan, planFromJson, planToJson, rangeOf, withOthersLast} from './plan';
-import {enumerateScenarios} from './scenarios';
+import {Plan, rangeOf, withOthersLast} from './plan';
+import {PlanFileError, PlanFileProblem, planFromJson, planToJson} from './plan-file';
+import {defaultPlan, emptyPlan} from './starter-plans';
+import {enumerateScenarios} from './enumerate';
 
 describe('plan serialization', () => {
   const withDebit = (plan: Plan, position: Position): Plan => ({...plan, debit: [...plan.debit, position]});
@@ -93,21 +95,33 @@ describe('plan serialization', () => {
     expect(restored.debit.at(-1)!.modifiers).toEqual([perPersonGroup(6), perParticipantGroup(4)]);
   });
 
-  it('rejects files that are not a plan', () => {
-    expect(() => planFromJson('kein json')).toThrow('kein gültiges JSON');
-    expect(() => planFromJson('{"version": 3}')).toThrow('unbekannte Version');
-    expect(() => planFromJson(JSON.stringify({
+  it('rejects files that are not a plan, naming the problem', () => {
+    const problem = (json: string): PlanFileProblem => {
+      try {
+        planFromJson(json);
+      } catch (error) {
+        if (error instanceof PlanFileError) {
+          return error.problem;
+        }
+        throw error;
+      }
+      throw new Error('expected a PlanFileError');
+    };
+    const withDebit = (modifiers: unknown[]): string => JSON.stringify({
+      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], credit: [],
+      debit: [{title: 'x', amount: 1, modifiers}],
+    });
+
+    expect(problem('kein json')).toEqual({code: 'invalidJson'});
+    expect(problem('{"version": 3}')).toEqual({code: 'unknownVersion'});
+    expect(problem(JSON.stringify({
       version: 1,
       days: {start: 1, end: 2}, participants: {start: 1, end: 2}, leaders: {start: 0, end: 1},
       debit: [{title: 'x', amount: 1, modifiers: [{type: 'unbekannt'}]}], credit: [],
-    }))).toThrow('Unbekannter Faktor');
-    expect(() => planFromJson(JSON.stringify({
-      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], credit: [],
-      debit: [{title: 'x', amount: 1, modifiers: [{type: 'toString'}]}],
-    }))).toThrow('Unbekannter Faktor');
-    expect(() => planFromJson(JSON.stringify({
-      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], credit: [],
-      debit: [{title: 'x', amount: 1, modifiers: [{type: 'personGroup'}]}],
-    }))).toThrow('Ungültige Gruppengröße');
+    }))).toEqual({code: 'unknownModifier', subject: 'unbekannt'});
+    expect(problem(withDebit([{type: 'toString'}]))).toEqual({code: 'unknownModifier', subject: 'toString'});
+    expect(problem(withDebit([{type: 'personGroup'}]))).toEqual({code: 'invalidGroupSize'});
+    expect(problem(withDebit([{type: 'city', city: 0}]))).toEqual({code: 'unknownCity'});
+    expect(() => planFromJson('{"version": 3}')).toThrow('unknownVersion');
   });
 });

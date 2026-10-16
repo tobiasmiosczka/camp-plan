@@ -1,4 +1,4 @@
-import { planFromJson } from '../calculation/plan';
+import {planFromJson} from '../calculation/plan-file';
 import {newCity, othersCity} from '../calculation/city';
 import {PER_NIGHT, perCity, perParticipantGroup} from '../calculation/modifiers';
 import { DE } from './de';

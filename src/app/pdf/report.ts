@@ -1,5 +1,5 @@
-import {Range} from './calculation/range';
-import {ValueRange} from './value-range';
+import {Range} from '../calculation/range';
+import {ValueRange} from '../calculation/value-range';
 
 export interface ReportPosition {
   title: string;

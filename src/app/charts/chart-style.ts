@@ -2,8 +2,8 @@ import {PlotlyService} from 'angular-plotly.js';
 import * as PlotlyJS from 'plotly.js-dist-min';
 import {Data, Layout, LayoutAxis} from 'plotly.js-dist-min';
 import {Messages} from '../i18n/de';
-import {euroFirst, formatEuro, separators} from '../format';
-import {ReportChart} from '../report';
+import {euroFirst, formatEuro, separators} from '../format/format';
+import {ReportChart} from '../pdf/report';
 
 // Hier statt in der App-Konfiguration: Nur die Diagramme importieren diese Datei, und die werden erst bei Bedarf
 // geladen. So landet Plotly, der mit Abstand größte Teil der App, nicht im Startpaket.

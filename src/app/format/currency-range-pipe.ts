@@ -1,6 +1,6 @@
 import {Pipe, PipeTransform} from '@angular/core';
 import {formatEuroRange} from './format';
-import {ValueRange} from './value-range';
+import {ValueRange} from '../calculation/value-range';
 
 /** {@link formatEuroRange} für Templates. */
 @Pipe({

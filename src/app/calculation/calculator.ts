@@ -1,4 +1,4 @@
-import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
+import {EMPTY_VALUE_RANGE, ValueRange} from './value-range';
 import {Context} from './context';
 import {PositionId} from './id';
 import {CityModifier, Modifier} from './modifiers';
@@ -6,7 +6,7 @@ import {Plan, rangeOf} from './plan';
 import {Position, positionSum} from './position';
 import {Progress, PROGRESS_STEP} from './progress';
 import {Range} from './range';
-import {cityColumn, missingCity, ScenarioColumns} from './scenarios';
+import {cityColumn, missingCity, ScenarioColumns} from './enumerate';
 
 export interface Calculation {
   /** Überschuss je Szenario, in derselben Reihenfolge wie die Szenarien. */

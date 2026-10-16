@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { evaluate } from '../../calculation/engine';
-import { defaultPlan, Plan } from '../../calculation/plan';
-import { ScenarioResults } from '../../calculation/scenarios';
+import {Plan} from '../../calculation/plan';
+import {defaultPlan} from '../../calculation/starter-plans';
+import {ScenarioResults} from '../../calculation/scenario-results';
 import { ScenarioChart } from './scenario-chart';
+import { changedAt } from '../../testing/plans';
 
 describe('ScenarioChart', () => {
   let fixture: ComponentFixture<ScenarioChart>;
@@ -59,7 +61,7 @@ describe('ScenarioChart', () => {
     const label = () => chart['dimensionOptions']().find(option => option.dimension.kind === 'city')!.label;
     expect(label()).toBe('Teilnehmer aus Dinslaken');
 
-    const renamed = plan.cities.map((city, i) => i === 0 ? {...city, name: 'Dinslaken-Nord'} : city);
+    const renamed = changedAt(plan.cities, 0, city => ({...city, name: 'Dinslaken-Nord'}));
     fixture.componentRef.setInput('cities', renamed);
 
     expect(label()).toBe('Teilnehmer aus Dinslaken-Nord');

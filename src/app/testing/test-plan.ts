@@ -1,9 +1,10 @@
 import {TestBed} from '@angular/core/testing';
 import {City, newCity} from '../calculation/city';
 import {PER_DAY, PER_PARTICIPANT, PER_PERSON, perCity} from '../calculation/modifiers';
-import {Plan, withOthersLast} from '../calculation/plan';
+import {Plan} from '../calculation/plan';
 import {newPosition} from '../calculation/position';
-import {PlanStore} from '../plan-store';
+import {PlanStore} from '../stores/plan-store';
+import {planWith} from './plans';
 
 /**
  * Ein Plan für Tests, klein genug zum Nachrechnen. Unabhängig vom Beispielplan der App: Der darf sich ändern, ohne
@@ -21,11 +22,11 @@ import {PlanStore} from '../plan-store';
 export function testPlan(): Plan {
   const aachen: City = newCity('Aachen', {start: 0, end: 2});
   const bonn: City = newCity('Bonn', {start: 1, end: 1});
-  return {
+  return planWith({
     name: 'Testlager',
     leaders: {start: 1, end: 2},
     days: {start: 2, end: 2},
-    cities: withOthersLast([aachen, bonn]),
+    cities: [aachen, bonn],
     debit: [
       newPosition('Halle', 100),
       newPosition('Essen', 10, [PER_PERSON, PER_DAY]),
@@ -34,7 +35,7 @@ export function testPlan(): Plan {
       newPosition('Beitrag', 60, [PER_PARTICIPANT]),
       newPosition('Zuschuss Aachen', 5, [perCity(aachen)]),
     ],
-  };
+  });
 }
 
 /** Lädt {@link testPlan} in den Store; vor allem, was den Plan liest oder rechnet. */

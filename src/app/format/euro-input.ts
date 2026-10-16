@@ -1,7 +1,7 @@
 import {Directive, effect, ElementRef, forwardRef, HostListener, inject} from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {formatAmount} from './format';
-import {LanguageStore} from './language-store';
+import {LanguageStore} from '../stores/language-store';
 
 /** Liest einen eingetippten Betrag; Komma und Punkt gelten beide als Dezimaltrenner. */
 export function parseEuro(text: string): number | null | undefined {

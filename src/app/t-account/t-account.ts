@@ -2,12 +2,12 @@ import {Component, computed, inject} from '@angular/core';
 import {MatCardModule} from '@angular/material/card';
 import {MatIconModule} from '@angular/material/icon';
 import {PositionId} from '../calculation/id';
-import {CurrencyRangePipe} from '../currency-range-pipe';
-import {LanguageStore} from '../language-store';
-import {PlanCalculation} from '../plan-calculation';
-import {PlanStore} from '../plan-store';
+import {CurrencyRangePipe} from '../format/currency-range-pipe';
+import {LanguageStore} from '../stores/language-store';
+import {PlanCalculation} from '../plan-calculation/plan-calculation';
+import {PlanStore} from '../stores/plan-store';
 import {PositionTableComponent} from '../position-table/position-table';
-import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
+import {EMPTY_VALUE_RANGE, ValueRange} from '../calculation/value-range';
 
 /** Einnahmen und Ausgaben als T-Konto, jede Seite mit ihren Positionen und ihrer Summe. */
 @Component({

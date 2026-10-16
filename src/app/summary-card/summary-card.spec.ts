@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { PlanStore } from '../plan-store';
+import { PlanStore } from '../stores/plan-store';
 import { useTestPlan } from '../testing/test-plan';
 import { SummaryCard } from './summary-card';
 

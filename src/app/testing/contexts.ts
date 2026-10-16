@@ -1,6 +1,6 @@
 import {Context} from '../calculation/context';
 import {CityId} from '../calculation/id';
-import {ScenarioColumns} from '../calculation/scenarios';
+import {ScenarioColumns} from '../calculation/enumerate';
 
 /** Jedes Szenario aus den Spalten als eigenes Objekt, um in Tests einzeln nachzurechnen. */
 export function contextsOf(columns: ScenarioColumns): Context[] {

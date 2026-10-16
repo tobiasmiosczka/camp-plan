@@ -1,14 +1,14 @@
 import {computed, effect, inject, Injectable, signal} from '@angular/core';
-import {City, newCity} from './calculation/city';
-import {AdjustableType} from './calculation/context';
-import {CityId, PositionId} from './calculation/id';
-import {Modifier} from './calculation/modifiers';
-import {
-  dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromJson, planToData, positionsOf, Side
-} from './calculation/plan';
-import {newPosition, Position, sortModifiers} from './calculation/position';
-import {Range} from './calculation/range';
-import {fileName, saveFile} from './download';
+import {City, newCity} from '../calculation/city';
+import {AdjustableType} from '../calculation/context';
+import {CityId, PositionId} from '../calculation/id';
+import {Modifier} from '../calculation/modifiers';
+import {Plan, positionsOf, Side} from '../calculation/plan';
+import {dataToJson, PlanData, planFromJson, planToData} from '../calculation/plan-file';
+import {defaultPlan, emptyPlan} from '../calculation/starter-plans';
+import {newPosition, Position, sortModifiers} from '../calculation/position';
+import {Range} from '../calculation/range';
+import {fileName, saveFile} from '../format/download';
 import {LanguageStore} from './language-store';
 import {readStored, writeStored} from './storage';
 

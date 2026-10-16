@@ -2,7 +2,7 @@ import { Component, effect, inject } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { AccountPanel } from './account-panel/account-panel';
 import { TopAppBar } from './top-app-bar/top-app-bar';
-import { PlanStore } from './plan-store';
+import { PlanStore } from './stores/plan-store';
 
 @Component({
   imports: [AccountPanel, TopAppBar],

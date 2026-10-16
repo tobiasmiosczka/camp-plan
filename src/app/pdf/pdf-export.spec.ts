@@ -2,8 +2,8 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { PdfExport } from './pdf-export';
 import { ChartSource, ReportChart } from './report';
-import { PlanStore } from './plan-store';
-import { useTestPlan } from './testing/test-plan';
+import { PlanStore } from '../stores/plan-store';
+import { useTestPlan } from '../testing/test-plan';
 
 function chart(title: string): ChartSource {
   const image: ReportChart = {title, subtitle: '', image: 'data:image/jpeg;base64,', aspect: 0.5};

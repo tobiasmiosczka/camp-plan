@@ -1,16 +1,16 @@
 import {inject, Injectable, Injector, signal, Signal} from '@angular/core';
-import {City} from './calculation/city';
-import {Modifier} from './calculation/modifiers';
-import {Plan, rangeOf} from './calculation/plan';
-import {Position} from './calculation/position';
-import {PlanCalculation, PlanResult} from './plan-calculation';
-import {fileName} from './download';
-import {PlanStore} from './plan-store';
-import {EMPTY_VALUE_RANGE} from './value-range';
-import {whenSignal} from './when-signal';
-import {cityName, describeModifier} from './i18n/labels';
-import {Messages} from './i18n/de';
-import {LanguageStore} from './language-store';
+import {City} from '../calculation/city';
+import {Modifier} from '../calculation/modifiers';
+import {Plan, rangeOf} from '../calculation/plan';
+import {Position} from '../calculation/position';
+import {PlanCalculation, PlanResult} from '../plan-calculation/plan-calculation';
+import {fileName} from '../format/download';
+import {PlanStore} from '../stores/plan-store';
+import {EMPTY_VALUE_RANGE} from '../calculation/value-range';
+import {whenSignal} from '../plan-calculation/when-signal';
+import {cityName, describeModifier} from '../i18n/labels';
+import {Messages} from '../i18n/de';
+import {LanguageStore} from '../stores/language-store';
 import {ChartKind, ChartSource, Report, ReportChart, ReportCity, ReportPosition} from './report';
 
 /**

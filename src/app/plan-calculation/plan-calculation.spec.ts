@@ -1,9 +1,9 @@
 import {ApplicationRef} from '@angular/core';
 import {TestBed} from '@angular/core/testing';
 import {PlanCalculation} from './plan-calculation';
-import {PlanStore} from './plan-store';
+import {PlanStore} from '../stores/plan-store';
 import {CalculationRunner} from './calculation-runner';
-import {useTestPlan} from './testing/test-plan';
+import {useTestPlan} from '../testing/test-plan';
 
 describe('PlanCalculation', () => {
   let store: PlanStore;

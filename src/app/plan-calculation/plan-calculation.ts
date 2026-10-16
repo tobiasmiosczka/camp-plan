@@ -1,11 +1,11 @@
 import {computed, effect, inject, Injectable, Injector, linkedSignal, resource, signal} from '@angular/core';
-import {calculationKey, EngineResult} from './calculation/engine';
-import {PositionId} from './calculation/id';
-import {Plan} from './calculation/plan';
-import {ScenarioResults} from './calculation/scenarios';
+import {calculationKey, EngineResult} from '../calculation/engine';
+import {PositionId} from '../calculation/id';
+import {Plan} from '../calculation/plan';
+import {ScenarioResults} from '../calculation/scenario-results';
 import {CalculationRunner} from './calculation-runner';
-import {PlanStore} from './plan-store';
-import {ValueRange} from './value-range';
+import {PlanStore} from '../stores/plan-store';
+import {ValueRange} from '../calculation/value-range';
 import {whenSignal} from './when-signal';
 
 /** Ein vollständiges Ergebnis, den Positionen und Städten des Plans wieder zugeordnet. */

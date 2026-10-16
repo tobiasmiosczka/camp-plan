@@ -3,8 +3,8 @@ import {FormsModule} from '@angular/forms';
 import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {LanguageStore} from '../language-store';
-import {PlanStore} from '../plan-store';
+import {LanguageStore} from '../stores/language-store';
+import {PlanStore} from '../stores/plan-store';
 
 /** Der Projektname als Überschrift des Plans. */
 @Component({

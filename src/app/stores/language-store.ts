@@ -1,6 +1,6 @@
 import {computed, Injectable, Signal, signal} from '@angular/core';
-import {DE, Messages} from './i18n/de';
-import {EN} from './i18n/en';
+import {DE, Messages} from '../i18n/de';
+import {EN} from '../i18n/en';
 import {readStored, removeStored, writeStored} from './storage';
 
 export type Language = 'de' | 'en';

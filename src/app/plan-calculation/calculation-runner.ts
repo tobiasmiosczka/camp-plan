@@ -1,8 +1,8 @@
 import {inject, Injectable, OnDestroy} from '@angular/core';
-import {EngineRequest, EngineResponse, EngineResult, evaluate} from './calculation/engine';
-import {Plan} from './calculation/plan';
-import {Progress} from './calculation/progress';
-import {LanguageStore} from './language-store';
+import {EngineRequest, EngineResponse, EngineResult, evaluate} from '../calculation/engine';
+import {Plan} from '../calculation/plan';
+import {Progress} from '../calculation/progress';
+import {LanguageStore} from '../stores/language-store';
 
 interface Pending {
   id: number;
@@ -52,7 +52,7 @@ export class CalculationRunner implements OnDestroy {
   }
 
   private createWorker(): Worker {
-    const worker = new Worker(new URL('./calculation/calculation.worker', import.meta.url), {type: 'module'});
+    const worker = new Worker(new URL('../calculation/calculation.worker', import.meta.url), {type: 'module'});
     worker.addEventListener('message', ({data}: MessageEvent<EngineResponse>): void => {
       const pending: Pending | null = this.pending;
       if (pending?.id !== data.id) {

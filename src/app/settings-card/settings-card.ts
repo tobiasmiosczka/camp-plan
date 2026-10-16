@@ -7,8 +7,8 @@ import {MatInputModule} from '@angular/material/input';
 import {AdjustableType} from '../calculation/context';
 import {Plan} from '../calculation/plan';
 import {Range} from '../calculation/range';
-import {LanguageStore} from '../language-store';
-import {PlanStore, RANGE_MIN} from '../plan-store';
+import {LanguageStore} from '../stores/language-store';
+import {PlanStore, RANGE_MIN} from '../stores/plan-store';
 
 interface ContextRow {
   type: AdjustableType;

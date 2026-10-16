@@ -1,20 +1,20 @@
 import {contextsOf} from '../testing/contexts';
+import {planWith} from '../testing/plans';
 import {calculate} from './calculator';
 import {newCity} from './city';
 import {Context} from './context';
 import {PER_DAY, PER_LEADER, PER_NIGHT, PER_PARTICIPANT, PER_PERSON, perCity, perParticipantGroup} from './modifiers';
-import {emptyPlan, Plan, withOthersLast} from './plan';
+import {Plan} from './plan';
 import {newPosition, Position, positionSum} from './position';
-import {enumerateScenarios} from './scenarios';
+import {enumerateScenarios} from './enumerate';
 
 describe('calculate', () => {
   const a = newCity('A', {start: 0, end: 3});
   const b = newCity('B', {start: 1, end: 2});
-  const plan: Plan = {
-    ...emptyPlan(),
+  const plan: Plan = planWith({
     leaders: {start: 0, end: 2},
     days: {start: 1, end: 3},
-    cities: withOthersLast([a, b]),
+    cities: [a, b],
     debit: [
       newPosition('Essen', 7, [PER_PERSON, PER_DAY]),
       newPosition('Halle', 300),
@@ -26,7 +26,7 @@ describe('calculate', () => {
       newPosition('Förderung A', 4, [perCity(a), PER_NIGHT]),
       newPosition('Förderung A pro Leiter', 2, [PER_LEADER, perCity(a)]),
     ],
-  };
+  });
   const scenarios = enumerateScenarios(plan, [a.id]);
   const contexts: Context[] = contextsOf(scenarios);
 

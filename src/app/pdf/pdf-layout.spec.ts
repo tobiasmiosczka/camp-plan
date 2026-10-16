@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { piggyBankImage, renderPdf } from './pdf-layout';
 import { Report, ReportPosition } from './report';
-import { EN } from './i18n/en';
+import { EN } from '../i18n/en';
 
 function report(overrides: Partial<Report> = {}): Report {
   const position = (title: string): ReportPosition => ({title, amount: 10, factors: 'pro Tag', sum: {min: 20, max: 30}});

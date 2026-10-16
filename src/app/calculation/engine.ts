@@ -5,7 +5,7 @@ import {Modifier} from './modifiers';
 import {Plan, positionsOf} from './plan';
 import {Position} from './position';
 import {phase, Progress} from './progress';
-import {enumerateScenarios, ScenarioColumns} from './scenarios';
+import {enumerateScenarios, ScenarioColumns} from './enumerate';
 
 /** Anteil des Aufzählens an der ganzen Rechnung, gemessen; der Rest ist das Rechnen. */
 const PHASE_SPLIT: number = 0.2;

@@ -1,10 +1,10 @@
 import {jsPDF} from 'jspdf';
 import {autoTable} from 'jspdf-autotable';
-import {formatEuro, formatEuroRange, formatInteger, formatPercent} from './format';
+import {formatEuro, formatEuroRange, formatInteger, formatPercent} from '../format/format';
 import {Report, ReportChart, ReportCity, ReportPosition} from './report';
-import {DE, Messages} from './i18n/de';
-import {Range} from './calculation/range';
-import {ValueRange} from './value-range';
+import {DE, Messages} from '../i18n/de';
+import {Range} from '../calculation/range';
+import {ValueRange} from '../calculation/value-range';
 
 /** Farben des hellen Themes – die PDF ist immer hell. */
 const PRIMARY: [number, number, number] = [0, 106, 106];

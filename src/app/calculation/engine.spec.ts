@@ -1,8 +1,11 @@
+import {changedAt} from '../testing/plans';
 import {calculate} from './calculator';
 import {calculationKey, evaluate, referencedCities, transferables} from './engine';
-import {defaultPlan, Plan} from './plan';
+import {Plan} from './plan';
+import {defaultPlan} from './starter-plans';
 import {newPosition} from './position';
-import {enumerateScenarios, ScenarioResults} from './scenarios';
+import {enumerateScenarios} from './enumerate';
+import {ScenarioResults} from './scenario-results';
 
 describe('evaluate', () => {
   it('returns the same numbers as calculating the plan directly', () => {
@@ -46,8 +49,9 @@ describe('evaluate progress', () => {
   it('reports a growing share up to the end of the calculation', () => {
     const plan = defaultPlan();
     // Groß genug für mehrere Meldungen je Phase
-    const large: Plan = {...plan, cities: plan.cities.map((city, i) =>
-      i === 1 ? {...city, participants: {start: 0, end: 100}} : city)};
+    const large: Plan = {
+      ...plan, cities: changedAt(plan.cities, 1, city => ({...city, participants: {start: 0, end: 100}})),
+    };
     const shares: number[] = [];
 
     const result = evaluate(large, false, share => shares.push(share));
@@ -69,15 +73,13 @@ describe('calculationKey', () => {
     const renamed: Plan = {
       ...plan,
       name: 'Sommerlager',
-      debit: plan.debit.map((position, i) => i === 1 ? {...position, title: 'Turnhalle'} : position),
-      cities: plan.cities.map((city, i) => i === 0 ? {...city, name: 'Stadt A'} : city),
+      debit: changedAt(plan.debit, 1, position => ({...position, title: 'Turnhalle'})),
+      cities: changedAt(plan.cities, 0, city => ({...city, name: 'Stadt A'})),
     };
     expect(calculationKey(renamed, false)).toBe(key);
 
     expect(calculationKey(plan, true)).not.toBe(key);
-    const changed: Plan = {
-      ...plan, debit: plan.debit.map((position, i) => i === 1 ? {...position, amount: 700} : position),
-    };
+    const changed: Plan = {...plan, debit: changedAt(plan.debit, 1, position => ({...position, amount: 700}))};
     expect(calculationKey(changed, false)).not.toBe(key);
   });
 

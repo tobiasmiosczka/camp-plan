@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { evaluate } from '../../calculation/engine';
 import { testPlan } from '../../testing/test-plan';
-import { ScenarioResults } from '../../calculation/scenarios';
+import {ScenarioResults} from '../../calculation/scenario-results';
 import { DistributionChart } from './distribution-chart';
 
 describe('DistributionChart', () => {

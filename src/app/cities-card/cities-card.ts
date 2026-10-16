@@ -12,9 +12,9 @@ import {Plan, rangeOf} from '../calculation/plan';
 import {Position} from '../calculation/position';
 import {Range} from '../calculation/range';
 import {cityName} from '../i18n/labels';
-import {LanguageStore} from '../language-store';
-import {PlanStore, Removed} from '../plan-store';
-import {Undo} from '../undo';
+import {LanguageStore} from '../stores/language-store';
+import {PlanStore, Removed} from '../stores/plan-store';
+import {Undo} from '../stores/undo';
 
 /** Die Städte, aus denen Teilnehmende kommen, je mit einer Spanne an Teilnehmern. */
 @Component({

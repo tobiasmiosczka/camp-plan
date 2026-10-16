@@ -1,8 +1,8 @@
 import {TestBed} from '@angular/core/testing';
-import {PER_DAY} from './calculation/modifiers';
-import {Plan} from './calculation/plan';
+import {PER_DAY} from '../calculation/modifiers';
+import {Plan} from '../calculation/plan';
 import {PlanStore} from './plan-store';
-import {useTestPlan} from './testing/test-plan';
+import {useTestPlan} from '../testing/test-plan';
 
 describe('PlanStore', () => {
   let store: PlanStore;

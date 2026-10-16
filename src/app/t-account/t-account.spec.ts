@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { LanguageStore } from '../language-store';
-import { PlanStore } from '../plan-store';
+import { LanguageStore } from '../stores/language-store';
+import { PlanStore } from '../stores/plan-store';
 import { useTestPlan } from '../testing/test-plan';
 import { TAccount } from './t-account';
 

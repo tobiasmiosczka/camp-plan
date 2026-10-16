@@ -16,7 +16,7 @@ interface Import {
 }
 
 interface SourceFile {
-  /** Relativ zu src/, z. B. 'app/plan-store.ts'. */
+  /** Relativ zu src/, z. B. 'app/stores/plan-store.ts'. */
   path: string;
   content: string;
   imports: Import[];
@@ -71,7 +71,7 @@ const show = (source: SourceFile, what: string): string => `${source.path} → $
 describe('architecture', () => {
   it('finds the source files and their imports', () => {
     expect(files.length).toBeGreaterThan(20);
-    expect(file('app/plan-store.ts').imports.map((i: Import): string => i.specifier)).toContain('@angular/core');
+    expect(file('app/stores/plan-store.ts').imports.map((i: Import): string => i.specifier)).toContain('@angular/core');
   });
 
   it('resolves every relative import to an existing file', () => {
@@ -84,7 +84,7 @@ describe('architecture', () => {
   });
 
   it('keeps the calculation core free of Angular and of anything outside it, because it runs in the web worker', () => {
-    const allowed = (target: string): boolean => target.startsWith('app/calculation/') || target === 'app/value-range.ts';
+    const allowed = (target: string): boolean => target.startsWith('app/calculation/');
     const violations: string[] = files
       .filter((source: SourceFile): boolean => source.path.startsWith('app/calculation/'))
       .flatMap((source: SourceFile): string[] => source.imports
@@ -116,12 +116,12 @@ describe('architecture', () => {
 
   it('imports jsPDF only in the PDF layout, and loads that only on demand', () => {
     const jspdf: string[] = files
-      .filter((source: SourceFile): boolean => source.path !== 'app/pdf-layout.ts')
+      .filter((source: SourceFile): boolean => source.path !== 'app/pdf/pdf-layout.ts')
       .flatMap((source: SourceFile): string[] => source.imports
         .filter((i: Import): boolean => isPackage(i.specifier, 'jspdf', 'jspdf-autotable'))
         .map((i: Import): string => show(source, i.specifier)));
     const staticLayout: string[] = files.flatMap((source: SourceFile): string[] => source.imports
-      .filter((i: Import): boolean => i.target === 'app/pdf-layout.ts' && !i.dynamic)
+      .filter((i: Import): boolean => i.target === 'app/pdf/pdf-layout.ts' && !i.dynamic)
       .map((i: Import): string => show(source, i.specifier)));
 
     expect(jspdf).toEqual([]);
@@ -169,7 +169,7 @@ describe('architecture', () => {
     // Erlaubte Empfänger: der Store selbst und Angulars Title-Service, der ebenfalls setTitle heißt
     const receivers: string[] = ['store', 'title'];
     const violations: string[] = files
-      .filter((source: SourceFile): boolean => !source.path.startsWith('app/calculation/') && source.path !== 'app/plan-store.ts')
+      .filter((source: SourceFile): boolean => !source.path.startsWith('app/calculation/') && source.path !== 'app/stores/plan-store.ts')
       .flatMap((source: SourceFile): string[] => [...source.content.matchAll(new RegExp(`\\b(\\w+)\\.(${mutators})\\(`, 'g'))]
         .filter(([, receiver]: RegExpMatchArray): boolean => !receivers.includes(receiver ?? ''))
         .map(([call]: RegExpMatchArray): string => show(source, call)));
@@ -178,14 +178,14 @@ describe('architecture', () => {
   });
 
   it('leaves the browser storage to the stores, through storage.ts', () => {
-    const stores: string[] = ['app/plan-store.ts', 'app/theme-store.ts', 'app/language-store.ts'];
+    const stores: string[] = ['app/stores/plan-store.ts', 'app/stores/theme-store.ts', 'app/stores/language-store.ts'];
     const direct: string[] = files
       .filter((source: SourceFile): boolean =>
-        source.path !== 'app/storage.ts' && /\blocalStorage\b/.test(source.content))
+        source.path !== 'app/stores/storage.ts' && /\blocalStorage\b/.test(source.content))
       .map((source: SourceFile): string => show(source, 'localStorage'));
     const users: string[] = files
       .filter((source: SourceFile): boolean => !stores.includes(source.path) && source.imports
-        .some((imported: Import): boolean => imported.target === 'app/storage.ts'))
+        .some((imported: Import): boolean => imported.target === 'app/stores/storage.ts'))
       .map((source: SourceFile): string => show(source, 'storage.ts'));
 
     expect(direct).toEqual([]);

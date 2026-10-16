@@ -1,4 +1,4 @@
-import {formatInteger} from '../format';
+import {formatInteger} from '../format/format';
 
 /**
  * Alle Texte der Oberfläche und der PDF auf Deutsch. Diese Datei gibt die Struktur vor: {@link Messages} wird aus ihr

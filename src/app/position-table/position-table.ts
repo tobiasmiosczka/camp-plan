@@ -13,15 +13,15 @@ import {City} from '../calculation/city';
 import {CityId, PositionId} from '../calculation/id';
 import {createModifier, Modifier, MODIFIER_KINDS, ModifierKind} from '../calculation/modifiers';
 import {Position} from '../calculation/position';
-import {CurrencyRangePipe} from '../currency-range-pipe';
-import {EuroInputDirective} from '../euro-input';
+import {CurrencyRangePipe} from '../format/currency-range-pipe';
+import {EuroInputDirective} from '../format/euro-input';
 import {cityName, describeModifier} from '../i18n/labels';
-import {LanguageStore} from '../language-store';
+import {LanguageStore} from '../stores/language-store';
 import {Side} from '../calculation/plan';
-import {PlanStore, Removed} from '../plan-store';
-import {TypedCellDef} from '../typed-cell-def';
-import {Undo} from '../undo';
-import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
+import {PlanStore, Removed} from '../stores/plan-store';
+import {TypedCellDef} from './typed-cell-def';
+import {Undo} from '../stores/undo';
+import {EMPTY_VALUE_RANGE, ValueRange} from '../calculation/value-range';
 
 @Component({
   selector: 'app-position-table',

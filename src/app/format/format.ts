@@ -1,4 +1,4 @@
-import {ValueRange} from './value-range';
+import {ValueRange} from '../calculation/value-range';
 
 /**
  * Alle Zahlenformate der App an einer Stelle, damit Oberfläche, Diagramme und PDF Beträge gleich schreiben.
