@@ -1,10 +1,8 @@
 import {TestBed} from '@angular/core/testing';
-import {Plan} from '../calculation/plan';
-import {City} from '../calculation/city';
-import {ContextRange, ContextType} from '../calculation/context';
-import {PER_DAY, PER_PARTICIPANT, PER_PERSON, PerCityModifier} from '../calculation/modifiers';
-import {Position} from '../calculation/position';
-import {Range} from '../calculation/range';
+import {City, newCity} from '../calculation/city';
+import {PER_DAY, PER_PARTICIPANT, PER_PERSON, perCity} from '../calculation/modifiers';
+import {Plan, withOthersLast} from '../calculation/plan';
+import {newPosition} from '../calculation/position';
 import {PlanStore} from '../plan-store';
 
 /**
@@ -21,21 +19,20 @@ import {PlanStore} from '../plan-store';
  * Im Mittel −45 €, in 5 von 6 Szenarien ein Defizit.
  */
 export function testPlan(): Plan {
-  const aachen = new City('Aachen', {start: 0, end: 2});
-  const bonn = new City('Bonn', {start: 1, end: 1});
+  const aachen: City = newCity('Aachen', {start: 0, end: 2});
+  const bonn: City = newCity('Bonn', {start: 1, end: 1});
   return {
     name: 'Testlager',
-    contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 1, end: 2}],
-      [ContextType.DAYS, {start: 2, end: 2}],
-    ]), [aachen, bonn]),
+    leaders: {start: 1, end: 2},
+    days: {start: 2, end: 2},
+    cities: withOthersLast([aachen, bonn]),
     debit: [
-      new Position('Halle', 100),
-      new Position('Essen', 10, [PER_PERSON, PER_DAY]),
+      newPosition('Halle', 100),
+      newPosition('Essen', 10, [PER_PERSON, PER_DAY]),
     ],
     credit: [
-      new Position('Beitrag', 60, [PER_PARTICIPANT]),
-      new Position('Zuschuss Aachen', 5, [new PerCityModifier(aachen)]),
+      newPosition('Beitrag', 60, [PER_PARTICIPANT]),
+      newPosition('Zuschuss Aachen', 5, [perCity(aachen)]),
     ],
   };
 }
@@ -43,6 +40,6 @@ export function testPlan(): Plan {
 /** Lädt {@link testPlan} in den Store; vor allem, was den Plan liest oder rechnet. */
 export function useTestPlan(): Plan {
   const plan: Plan = testPlan();
-  TestBed.inject(PlanStore).plan.set(plan);
+  TestBed.inject(PlanStore).restore(plan);
   return plan;
 }

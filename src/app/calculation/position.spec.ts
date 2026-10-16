@@ -1,31 +1,37 @@
-import {City} from './city';
-import {Context, FixedContext} from './context';
-import {
-  PER_DAY, PER_NIGHT, PER_PERSON, PerCityModifier, PerParticipantGroupModifier, PerPersonGroupModifier
-} from './modifiers';
-import {Position} from './position';
+import {newCity} from './city';
+import {Context} from './context';
+import {PER_DAY, PER_NIGHT, PER_PERSON, perCity, perParticipantGroup, perPersonGroup} from './modifiers';
+import {newPosition, positionSum} from './position';
 
 describe('PER_NIGHT', () => {
-  const withDays = (days: number): Context => new FixedContext(0, 0, days);
+  const withDays = (days: number): Context => ({participants: 0, leaders: 0, days});
 
   it('counts one night less than days', () => {
-    const position = new Position('Übernachtung', 10, [PER_NIGHT]);
+    const position = newPosition('Übernachtung', 10, [PER_NIGHT]);
 
-    expect(position.getSum(withDays(3))).toBe(20);
-    expect(position.getSum(withDays(1))).toBe(0);
+    expect(positionSum(position, withDays(3))).toBe(20);
+    expect(positionSum(position, withDays(1))).toBe(0);
   });
 });
 
 describe('Position modifiers', () => {
-  it('are ordered by kind, then by group size or city name', () => {
-    const groupOf10 = new PerParticipantGroupModifier(10);
-    const groupOf8 = new PerParticipantGroupModifier(8);
-    const personGroup = new PerPersonGroupModifier(5);
-    const cityB = new PerCityModifier(new City('B', {start: 0, end: 1}));
-    const cityA = new PerCityModifier(new City('A', {start: 0, end: 1}));
-    const position = new Position('x', 1, [cityB, groupOf10, PER_DAY, cityA, groupOf8, personGroup]);
-    position.addModifier(PER_PERSON);
+  it('are ordered by kind, then by group size; cities keep their order', () => {
+    const cityB = perCity(newCity('B', {start: 0, end: 1}));
+    const cityA = perCity(newCity('A', {start: 0, end: 1}));
+    const position = newPosition('x', 1, [
+      cityB, perParticipantGroup(10), PER_DAY, cityA, perParticipantGroup(8), perPersonGroup(5), PER_PERSON,
+    ]);
 
-    expect(position.getModifiers()).toEqual([PER_PERSON, PER_DAY, personGroup, groupOf8, groupOf10, cityA, cityB]);
+    expect(position.modifiers).toEqual([
+      PER_PERSON, PER_DAY, perPersonGroup(5), perParticipantGroup(8), perParticipantGroup(10), cityB, cityA,
+    ]);
+  });
+
+  it('count participants of the chosen city only', () => {
+    const a = newCity('A', {start: 0, end: 2});
+    const context: Context = {participants: 4, leaders: 1, days: 1, cities: new Map([[a.id, 2]])};
+
+    expect(positionSum(newPosition('A', 10, [perCity(a)]), context)).toBe(20);
+    expect(positionSum(newPosition('B', 10, [perCity(newCity('B', {start: 0, end: 2}))]), context)).toBe(0);
   });
 });

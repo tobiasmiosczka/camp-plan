@@ -4,14 +4,14 @@ import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
-import {ContextRange, ContextType} from '../calculation/context';
+import {AdjustableType} from '../calculation/context';
+import {Plan} from '../calculation/plan';
 import {Range} from '../calculation/range';
 import {LanguageStore} from '../language-store';
 import {PlanStore, RANGE_MIN} from '../plan-store';
 
 interface ContextRow {
-  type: ContextType.DAYS | ContextType.LEADERS;
-  label: 'days' | 'leaders';
+  type: AdjustableType;
   icon: string;
   min: number;
 }
@@ -26,16 +26,16 @@ interface ContextRow {
 export class SettingsCard {
 
   protected readonly contextRows: ContextRow[] = [
-    {type: ContextType.DAYS, label: 'days', icon: 'calendar_month', min: RANGE_MIN[ContextType.DAYS]},
-    {type: ContextType.LEADERS, label: 'leaders', icon: 'supervisor_account', min: RANGE_MIN[ContextType.LEADERS]},
+    {type: 'days', icon: 'calendar_month', min: RANGE_MIN.days},
+    {type: 'leaders', icon: 'supervisor_account', min: RANGE_MIN.leaders},
   ];
 
   private readonly store = inject(PlanStore);
   protected readonly t = inject(LanguageStore).messages;
 
-  protected readonly contextRange = computed((): ContextRange => this.store.plan().contextRange);
+  protected readonly plan = computed((): Plan => this.store.plan());
 
-  protected setRange(type: ContextType.DAYS | ContextType.LEADERS, bound: keyof Range, value: number | null): void {
+  protected setRange(type: AdjustableType, bound: keyof Range, value: number | null): void {
     if (value !== null) {
       this.store.setRange(type, bound, value);
     }

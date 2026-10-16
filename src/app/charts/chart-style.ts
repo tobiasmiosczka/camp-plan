@@ -45,8 +45,20 @@ export class ChartStyle {
     return formatEuro(value, this.t.locale);
   }
 
+  /** Schon aufgelöste Farben: Jedes Auslesen erzwingt eine Layout-Berechnung im Browser. */
+  private readonly colors = new Map<string, string>();
+
   /** Löst eine Material-Farbvariable (ggf. light-dark()) in einen von Plotly lesbaren rgb-Wert auf. */
   color(variable: string): string {
+    let color: string | undefined = this.colors.get(variable);
+    if (color === undefined) {
+      color = this.resolve(variable);
+      this.colors.set(variable, color);
+    }
+    return color;
+  }
+
+  private resolve(variable: string): string {
     const probe: HTMLSpanElement = document.createElement('span');
     probe.style.color = `var(${variable})`;
     if (this.print) {

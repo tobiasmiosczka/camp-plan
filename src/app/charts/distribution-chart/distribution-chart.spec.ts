@@ -1,6 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { evaluate } from '../../calculation/engine';
-import { planToData } from '../../calculation/plan';
 import { testPlan } from '../../testing/test-plan';
 import { ScenarioResults } from '../../calculation/scenarios';
 import { DistributionChart } from './distribution-chart';
@@ -13,9 +12,9 @@ describe('DistributionChart', () => {
   beforeEach(() => {
     TestBed.overrideTemplate(DistributionChart, '');
     const plan = testPlan();
-    const result = evaluate(planToData(plan), false);
+    const result = evaluate(plan, false);
     const fixture: ComponentFixture<DistributionChart> = TestBed.createComponent(DistributionChart);
-    fixture.componentRef.setInput('results', new ScenarioResults(result.scenarios, result.values, plan.contextRange));
+    fixture.componentRef.setInput('results', new ScenarioResults(result.scenarios, result.values, plan));
     fixture.componentRef.setInput('calculation', result);
     chart = fixture.componentInstance;
   });

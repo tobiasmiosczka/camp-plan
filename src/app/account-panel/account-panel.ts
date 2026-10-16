@@ -2,7 +2,7 @@ import {Component, computed, effect, inject, Signal, untracked} from '@angular/c
 import {NgTemplateOutlet} from '@angular/common';
 import {MatCardModule} from '@angular/material/card';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {ContextRange} from '../calculation/context';
+import {City} from '../calculation/city';
 import {CitiesCard} from '../cities-card/cities-card';
 import {LanguageStore} from '../language-store';
 import {PdfExport} from '../pdf-export';
@@ -46,7 +46,7 @@ export class AccountPanel {
   protected readonly chartsRequested: Signal<boolean> = inject(PdfExport).chartsRequested;
 
   protected readonly perParticipant = this.store.perParticipant;
-  protected readonly contextRange = computed((): ContextRange => this.store.plan().contextRange);
+  protected readonly cities = computed((): readonly City[] => this.store.plan().cities);
 
   /** Bis zum ersten Ergebnis null; die Diagramme erscheinen erst, wenn es da ist. */
   protected readonly result = this.calculation.result;

@@ -11,7 +11,9 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { fileErrorMessage } from '../i18n/labels';
 import { Language, LANGUAGES, LanguageStore } from '../language-store';
+import { Plan } from '../calculation/plan';
 import { PlanStore } from '../plan-store';
+import { Undo } from '../undo';
 import { ThemeStore } from '../theme-store';
 import { PdfExport } from '../pdf-export';
 import { PlanCalculation } from '../plan-calculation';
@@ -27,6 +29,7 @@ import { PlanCalculation } from '../plan-calculation';
 export class TopAppBar {
   private readonly store = inject(PlanStore);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly undo = inject(Undo);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly piggyBank = viewChild.required('piggyBank', {read: ElementRef<HTMLElement>});
 
@@ -115,29 +118,23 @@ export class TopAppBar {
   }
 
   protected reset(): void {
-    const previous = this.store.data();
+    const previous: Plan = this.store.plan();
     this.store.reset();
-    this.snackBar
-      .open(this.t().topBar.exampleLoaded, this.t().common.undo, {duration: 5000})
-      .onAction()
-      .subscribe((): void => this.store.restore(previous));
+    this.undo.offer(this.t().topBar.exampleLoaded, (): void => this.store.restore(previous));
   }
 
   protected resetAll(): void {
     const previous = {
-      plan: this.store.data(), perParticipant: this.perParticipant(), dark: this.dark(), language: this.language(),
+      plan: this.store.plan(), perParticipant: this.perParticipant(), dark: this.dark(), language: this.language(),
     };
     this.store.clear();
     this.theme.reset();
     this.languageStore.reset();
-    this.snackBar
-      .open(this.t().topBar.allReset, this.t().common.undo, {duration: 8000})
-      .onAction()
-      .subscribe((): void => {
-        this.store.restore(previous.plan);
-        this.perParticipant.set(previous.perParticipant);
-        this.theme.setDark(previous.dark);
-        this.languageStore.setLanguage(previous.language);
-      });
+    this.undo.offer(this.t().topBar.allReset, (): void => {
+      this.store.restore(previous.plan);
+      this.perParticipant.set(previous.perParticipant);
+      this.theme.setDark(previous.dark);
+      this.languageStore.setLanguage(previous.language);
+    }, 8000);
   }
 }

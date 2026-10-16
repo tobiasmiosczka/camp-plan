@@ -1,12 +1,12 @@
 <div class="table-scroll">
-<table mat-table [dataSource]="rows()">
+<table mat-table [dataSource]="positions()" [trackBy]="trackById">
   <ng-container matColumnDef="position-name">
     <th mat-header-cell *matHeaderCellDef>{{ t().positions.name }}</th>
     <td mat-cell *matCellDef="let element">
       <mat-form-field subscriptSizing="dynamic" class="dense name">
         <textarea matInput cdkTextareaAutosize cdkAutosizeMinRows="1" [attr.aria-label]="t().positions.name"
                   (keydown.enter)="$event.preventDefault()"
-                  [ngModel]="element.getTitle()" (ngModelChange)="setTitle(element, $event)"></textarea>
+                  [ngModel]="element.title" (ngModelChange)="setTitle(element, $event)"></textarea>
       </mat-form-field>
     </td>
   </ng-container>
@@ -16,7 +16,7 @@
     <td mat-cell *matCellDef="let element" class="text-right">
       <mat-form-field subscriptSizing="dynamic" class="dense amount">
         <input matInput appEuroInput class="text-right" [attr.aria-label]="t().positions.amountInEuro"
-               [ngModel]="element.getAmount()" (ngModelChange)="setAmount(element, $event)"/>
+               [ngModel]="element.amount" (ngModelChange)="setAmount(element, $event)"/>
         <span matTextSuffix>&nbsp;€</span>
       </mat-form-field>
     </td>
@@ -26,20 +26,20 @@
     <th mat-header-cell *matHeaderCellDef>{{ t().positions.multipliedBy }}</th>
     <td mat-cell *matCellDef="let element">
       <mat-chip-set>
-        @for (modifier of element.getModifiers(); track $index) {
-          <mat-chip (removed)="removeModifier(element, modifier)">
+        @for (modifier of element.modifiers; track $index; let index = $index) {
+          <mat-chip (removed)="removeModifier(element, index)">
             @if (isCity(modifier)) {
               {{ t().modifiers.perParticipantFrom }}
               <select class="chip-select" [attr.aria-label]="t().common.city" (keydown)="$event.stopPropagation()"
-                      [ngModel]="modifier.getCity()" (ngModelChange)="setCity(modifier, $event)">
-                @for (city of cities(); track city) {
-                  <option [ngValue]="city">{{ cityName(city) }}</option>
+                      [ngModel]="modifier.city" (ngModelChange)="setCity(element, index, $event)">
+                @for (city of cities(); track city.id) {
+                  <option [value]="city.id">{{ cityName(city) }}</option>
                 }
               </select>
             } @else if (isGroup(modifier)) {
               {{ t().modifiers.per }}
               <input type="number" min="1" class="group-size" [attr.aria-label]="t().modifiers.groupSize" (keydown)="$event.stopPropagation()"
-                     [ngModel]="modifier.getGroupSize()" (ngModelChange)="setGroupSize(modifier, $event)"/>
+                     [ngModel]="modifier.groupSize" (ngModelChange)="setGroupSize(element, index, $event)"/>
               {{ t().modifiers.units[modifier.kind] }}
             } @else {
               {{ describe(modifier) }}

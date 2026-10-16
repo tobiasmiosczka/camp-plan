@@ -1,13 +1,13 @@
 import {Calculation, calculate} from './calculator';
-import {Plan, PlanData, planFromData} from './plan';
 import {City} from './city';
-import {PerCityModifier, PositionModifier} from './modifiers';
+import {Modifier} from './modifiers';
+import {Plan, positionsOf} from './plan';
 import {Position} from './position';
 import {phase, Progress} from './progress';
 import {enumerateScenarios, ScenarioColumns} from './scenarios';
 
 /** Anteil des Aufzählens an der ganzen Rechnung, gemessen; der Rest ist das Rechnen. */
-const PHASE_SPLIT: number = 0.1;
+const PHASE_SPLIT: number = 0.2;
 
 /** Alles, was die Oberfläche aus einer Rechnung braucht – nur Zahlen, damit es sich an den Worker übergeben lässt. */
 export interface EngineResult extends Calculation {
@@ -16,8 +16,8 @@ export interface EngineResult extends Calculation {
 
 export interface EngineRequest {
   id: number;
-  /** Der Plan als reine Daten wie beim Speichern: Klassen und Objekt-Identität überstehen den Weg zum Worker nicht. */
-  plan: PlanData;
+  /** Reine Daten ohne Klassen: Der Plan übersteht den Weg zum Worker unverändert, samt IDs. */
+  plan: Plan;
   perParticipant: boolean;
 }
 
@@ -26,24 +26,21 @@ export type EngineResponse =
   | { id: number, progress: number }
   | { id: number, error: string };
 
-/** Städte, auf die ein Faktor „pro Teilnehmer aus …“ verweist. */
-export function referencedCities(positions: Position[]): City[] {
-  return positions
-    .flatMap((position: Position): PositionModifier[] => position.getModifiers())
-    .filter((modifier: PositionModifier): modifier is PerCityModifier => modifier instanceof PerCityModifier)
-    .map((modifier: PerCityModifier): City => modifier.getCity());
+/** IDs der Städte, auf die ein Faktor „pro Teilnehmer aus …“ verweist. */
+export function referencedCities(plan: Plan): string[] {
+  const ids: Set<string> = new Set<string>(positionsOf(plan).flatMap((position: Position): string[] =>
+    position.modifiers.flatMap((modifier: Modifier): string[] => modifier.kind === 'city' ? [modifier.city] : [])));
+  return plan.cities.map(({id}: City): string => id).filter((id: string): boolean => ids.has(id));
 }
 
 /**
- * Rechnet einen gespeicherten Plan vollständig durch; läuft im Worker, ohne Worker auch im Haupt-Thread.
+ * Rechnet einen Plan vollständig durch; läuft im Worker, ohne Worker auch im Haupt-Thread.
  * Die Anteile der Phasen am Fortschritt sind gemessen, damit der Ladebalken gleichmäßig läuft.
  */
-export function evaluate(data: PlanData, perParticipant: boolean, onProgress?: Progress): EngineResult {
-  const plan: Plan = planFromData(data);
-  const relevant: City[] = referencedCities([...plan.debit, ...plan.credit]);
-  const scenarios: ScenarioColumns = enumerateScenarios(plan.contextRange, relevant, phase(onProgress, 0, PHASE_SPLIT));
-  const calculation: Calculation = calculate(scenarios, plan.contextRange, plan.debit, plan.credit, perParticipant,
-    phase(onProgress, PHASE_SPLIT, 1));
+export function evaluate(plan: Plan, perParticipant: boolean, onProgress?: Progress): EngineResult {
+  const scenarios: ScenarioColumns =
+    enumerateScenarios(plan, referencedCities(plan), phase(onProgress, 0, PHASE_SPLIT));
+  const calculation: Calculation = calculate(scenarios, plan, perParticipant, phase(onProgress, PHASE_SPLIT, 1));
   return {...calculation, scenarios};
 }
 
@@ -58,14 +55,13 @@ export function transferables(result: EngineResult): ArrayBuffer[] {
 
 /**
  * Alles aus dem Plan, was ein Ergebnis verändern kann. Titel und Namen fehlen: Umbenennen braucht keine neue
- * Rechnung.
+ * Rechnung. Die IDs gehören dazu, weil das Ergebnis über sie den Positionen und Städten zugeordnet wird.
  */
-export function calculationKey(data: PlanData, perParticipant: boolean): string {
-  const numbers = (positions: PlanData['debit']): unknown[] =>
-    positions.map((position): unknown[] => [position.amount, position.modifiers]);
+export function calculationKey(plan: Plan, perParticipant: boolean): string {
   return JSON.stringify([
-    perParticipant, data.days, data.leaders,
-    data.cities.map((city): unknown => city.participants),
-    numbers(data.debit), numbers(data.credit),
+    perParticipant, plan.days, plan.leaders,
+    plan.cities.map((city: City): unknown => [city.id, city.participants]),
+    positionsOf(plan).map((position: Position): unknown => [position.id, position.amount, position.modifiers]),
+    plan.debit.length,
   ]);
 }

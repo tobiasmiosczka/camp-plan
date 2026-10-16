@@ -1,6 +1,7 @@
 import {computed, Injectable, Signal, signal} from '@angular/core';
 import {DE, Messages} from './i18n/de';
 import {EN} from './i18n/en';
+import {readStored, removeStored, writeStored} from './storage';
 
 export type Language = 'de' | 'en';
 
@@ -30,20 +31,12 @@ export class LanguageStore {
   setLanguage(language: Language): void {
     this.languageSignal.set(language);
     this.apply();
-    try {
-      localStorage.setItem(LanguageStore.STORAGE_KEY, language);
-    } catch {
-      // Ohne Browser-Speicher gilt die Wahl nur bis zum Neuladen.
-    }
+    writeStored(LanguageStore.STORAGE_KEY, language);
   }
 
   /** Vergisst die gespeicherte Wahl und folgt wieder dem Browser. */
   reset(): void {
-    try {
-      localStorage.removeItem(LanguageStore.STORAGE_KEY);
-    } catch {
-      // Nichts gespeichert, nichts zu löschen.
-    }
+    removeStored(LanguageStore.STORAGE_KEY);
     this.languageSignal.set(browserLanguage());
     this.apply();
   }
@@ -54,12 +47,8 @@ export class LanguageStore {
   }
 
   private restore(): Language | null {
-    try {
-      const stored: string | null = localStorage.getItem(LanguageStore.STORAGE_KEY);
-      return isLanguage(stored) ? stored : null;
-    } catch {
-      return null;
-    }
+    const stored: string | null = readStored(LanguageStore.STORAGE_KEY);
+    return isLanguage(stored) ? stored : null;
   }
 }
 

@@ -30,7 +30,7 @@ describe('SummaryCard', () => {
     const store = TestBed.inject(PlanStore);
 
     // Ohne Halle: Überschuss = 45 · A + 40 − 20 · L, also 0 € bis 110 € und kein Defizit mehr
-    store.setAmount(store.plan().debit[0], 0);
+    store.setAmount(store.plan().debit[0].id, 0);
     await fixture.whenStable();
 
     expect(text()).toContain('0,00 € – 110,00 €');

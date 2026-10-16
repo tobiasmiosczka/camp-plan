@@ -1,5 +1,6 @@
 import {inject, Injectable, signal} from '@angular/core';
 import {BreakpointObserver} from '@angular/cdk/layout';
+import {readStored, removeStored, writeStored} from './storage';
 
 @Injectable({providedIn: 'root'})
 export class ThemeStore {
@@ -29,22 +30,14 @@ export class ThemeStore {
   setDark(dark: boolean): void {
     this.choice = dark;
     this.apply();
-    try {
-      localStorage.setItem(ThemeStore.STORAGE_KEY, dark ? 'dark' : 'light');
-    } catch {
-      // Ohne Browser-Speicher gilt die Wahl nur bis zum Neuladen.
-    }
+    writeStored(ThemeStore.STORAGE_KEY, dark ? 'dark' : 'light');
   }
 
   /** Vergisst die gespeicherte Wahl und folgt wieder dem Betriebssystem. */
   reset(): void {
     this.choice = null;
     this.apply();
-    try {
-      localStorage.removeItem(ThemeStore.STORAGE_KEY);
-    } catch {
-      // Nichts gespeichert, nichts zu löschen.
-    }
+    removeStored(ThemeStore.STORAGE_KEY);
   }
 
   private apply(): void {
@@ -59,11 +52,7 @@ export class ThemeStore {
   }
 
   private restore(): boolean | null {
-    try {
-      const stored: string | null = localStorage.getItem(ThemeStore.STORAGE_KEY);
-      return stored === null ? null : stored === 'dark';
-    } catch {
-      return null;
-    }
+    const stored: string | null = readStored(ThemeStore.STORAGE_KEY);
+    return stored === null ? null : stored === 'dark';
   }
 }

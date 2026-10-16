@@ -33,26 +33,26 @@ describe('PlanCalculation', () => {
     const plan = store.plan();
 
     expect(result.results.scenarioCount).toBe(6);
-    expect(result.positionSums.get(plan.debit[0])).toEqual({min: 100, max: 100});
-    expect(result.positionSums.get(plan.debit[1])).toEqual({min: 40, max: 100});
+    expect(result.positionSums.get(plan.debit[0].id)).toEqual({min: 100, max: 100});
+    expect(result.positionSums.get(plan.debit[1].id)).toEqual({min: 40, max: 100});
     expect(calculation.skeleton()).toBe(false);
   });
 
   it('calculates again when a number changes', async () => {
     const first = calculation.result()!;
 
-    store.setAmount(store.plan().debit[0], 700);
+    store.setAmount(store.plan().debit[0].id, 700);
     await settle();
 
     expect(calculation.result()).not.toBe(first);
-    expect(calculation.result()!.positionSums.get(store.plan().debit[0])).toEqual({min: 700, max: 700});
+    expect(calculation.result()!.positionSums.get(store.plan().debit[0].id)).toEqual({min: 700, max: 700});
   });
 
   it('does not calculate again for renaming', async () => {
     const before = runs;
 
-    store.setTitle(store.plan().debit[0], 'Turnhalle');
-    store.setCityName(store.plan().contextRange.getCities()[0], 'Stadt A');
+    store.setTitle(store.plan().debit[0].id, 'Turnhalle');
+    store.setCityName(store.plan().cities[0].id, 'Stadt A');
     store.rename('Sommerlager');
     await settle();
 
@@ -62,15 +62,15 @@ describe('PlanCalculation', () => {
   it('hands out the result of the latest change, even right after it', async () => {
     const before = await calculation.latest();
 
-    store.setAmount(store.plan().debit[0], 700);
+    store.setAmount(store.plan().debit[0].id, 700);
     const after = await calculation.latest();
 
     expect(after).not.toBe(before);
-    expect(after.positionSums.get(store.plan().debit[0])).toEqual({min: 700, max: 700});
+    expect(after.positionSums.get(store.plan().debit[0].id)).toEqual({min: 700, max: 700});
   });
 
   it('shows no progress for a quick calculation', async () => {
-    store.setAmount(store.plan().debit[0], 700);
+    store.setAmount(store.plan().debit[0].id, 700);
     await settle();
 
     expect(calculation.progress()).toBeNull();
@@ -85,7 +85,7 @@ describe('PlanCalculation', () => {
     });
     const now = vi.spyOn(performance, 'now');
 
-    store.setAmount(store.plan().debit[0], 700);
+    store.setAmount(store.plan().debit[0].id, 700);
     // Nicht auf Stabilität warten: Die Rechnung hält der Test absichtlich an
     TestBed.tick();
     await vi.waitFor(() => expect(report).toBeDefined());

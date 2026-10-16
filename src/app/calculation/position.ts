@@ -1,59 +1,28 @@
 import {Context} from './context';
-import {compareModifiers, PositionModifier} from './modifiers';
+import {newId} from './id';
+import {compareModifiers, factor, Modifier} from './modifiers';
 
-export class Position {
+/** Ein Posten auf der Ausgaben- oder Einnahmenseite: Betrag mal alle Faktoren. */
+export interface Position {
+  readonly id: string;
+  readonly title: string;
+  readonly amount: number;
+  /** Sortiert nach {@link compareModifiers}; „pro Teilnehmer aus …“ steht immer am Ende. */
+  readonly modifiers: readonly Modifier[];
+}
 
-  private title: string;
-  private amount: number;
-  private readonly positionModifier: Array<PositionModifier>;
+export function newPosition(title: string, amount: number, modifiers: readonly Modifier[] = []): Position {
+  return {id: newId(), title, amount, modifiers: sortModifiers(modifiers)};
+}
 
-  public constructor(title: string, amount: number, positionModifiers: Array<PositionModifier> = []) {
-    this.title = title;
-    this.amount = amount;
-    this.positionModifier = [...positionModifiers].sort(compareModifiers);
+export function sortModifiers(modifiers: readonly Modifier[]): Modifier[] {
+  return [...modifiers].sort(compareModifiers);
+}
+
+export function positionSum(position: Position, context: Context): number {
+  let sum: number = position.amount;
+  for (const modifier of position.modifiers) {
+    sum = factor(modifier, context) * sum;
   }
-
-  public getTitle(): string {
-    return this.title;
-  }
-
-  public setTitle(title: string): void {
-    this.title = title;
-  }
-
-  public getAmount(): number {
-    return this.amount;
-  }
-
-  public setAmount(amount: number): void {
-    this.amount = amount;
-  }
-
-  public getSum(context: Context): number {
-    let amount = this.amount;
-    for (const modifier of this.positionModifier) {
-      amount = modifier.modify(context) * amount;
-    }
-    return amount;
-  }
-
-  public getModifiers(): PositionModifier[] {
-    return this.positionModifier;
-  }
-
-  public addModifier(modifier: PositionModifier): void {
-    this.positionModifier.push(modifier);
-    this.positionModifier.sort(compareModifiers);
-  }
-
-  public removeModifier(modifier: PositionModifier): void {
-    const index = this.positionModifier.indexOf(modifier);
-    if (index >= 0) {
-      this.positionModifier.splice(index, 1);
-    }
-  }
-
-  public per(modifiers: PositionModifier[]): Position {
-    return new Position(this.title, this.amount, [...this.positionModifier, ...modifiers]);
-  }
+  return sum;
 }

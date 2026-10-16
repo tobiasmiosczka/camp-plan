@@ -1,40 +1,22 @@
+import {newId} from './id';
 import {Range} from './range';
 
 /** Eine Stadt, aus der Teilnehmende kommen, mit geschätzter Teilnehmerzahl. */
-export class City {
+export interface City {
+  readonly id: string;
+  readonly name: string;
+  readonly participants: Range;
+  /** Sammelposten für alle Teilnehmenden ohne eigene Stadt; gibt es in jedem Plan genau einmal, als letzte Stadt. */
+  readonly others: boolean;
+}
 
-  public static readonly OTHERS_NAME = 'Sonstige';
+/** Name von „Sonstige“ in Dateien; angezeigt wird der Name der gewählten Sprache. */
+export const OTHERS_NAME = 'Sonstige';
 
-  private name: string;
-  private readonly participants: Range;
-  private readonly others: boolean;
+export function newCity(name: string, participants: Range): City {
+  return {id: newId(), name, participants, others: false};
+}
 
-  public constructor(name: string, participants: Range, others: boolean = false) {
-    this.name = name;
-    this.participants = participants;
-    this.others = others;
-  }
-
-  /** Sammelposten für alle Teilnehmenden ohne eigene Stadt; gibt es in jedem Plan genau einmal. */
-  public static others(participants: Range = {start: 0, end: 0}): City {
-    return new City(City.OTHERS_NAME, participants, true);
-  }
-
-  public isOthers(): boolean {
-    return this.others;
-  }
-
-  public getName(): string {
-    return this.name;
-  }
-
-  public setName(name: string): void {
-    if (!this.others) {
-      this.name = name;
-    }
-  }
-
-  public getParticipants(): Range {
-    return this.participants;
-  }
+export function othersCity(participants: Range = {start: 0, end: 0}): City {
+  return {id: newId(), name: OTHERS_NAME, participants, others: true};
 }

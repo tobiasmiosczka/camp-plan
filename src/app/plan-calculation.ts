@@ -1,6 +1,6 @@
 import {computed, effect, inject, Injectable, Injector, linkedSignal, resource, signal} from '@angular/core';
 import {calculationKey, EngineResult} from './calculation/engine';
-import {Plan, PlanData} from './calculation/plan';
+import {Plan, positionsOf} from './calculation/plan';
 import {Position} from './calculation/position';
 import {ScenarioResults} from './calculation/scenarios';
 import {CalculationRunner} from './calculation-runner';
@@ -14,14 +14,15 @@ export interface PlanResult {
   key: string;
   calculation: EngineResult;
   results: ScenarioResults;
-  positionSums: Map<Position, ValueRange>;
+  /** Spanne je Positions-ID. */
+  positionSums: Map<string, ValueRange>;
 }
 
 /** Erst ab dieser Rechendauer erscheint der Ladebalken; kürzere Rechnungen kommen mit dem Skelett aus. */
 const LONG_CALCULATION_MS: number = 400;
 
 interface Request {
-  data: PlanData;
+  plan: Plan;
   perParticipant: boolean;
   /** Alle Zahlen des Plans ohne Titel und Namen; nur wenn er sich ändert, wird neu gerechnet. */
   key: string;
@@ -39,9 +40,9 @@ export class PlanCalculation {
   private readonly injector = inject(Injector);
 
   private readonly request = computed((): Request => {
-    const data: PlanData = this.store.data();
+    const plan: Plan = this.store.plan();
     const perParticipant: boolean = this.store.perParticipant();
-    return {data, perParticipant, key: calculationKey(data, perParticipant)};
+    return {plan, perParticipant, key: calculationKey(plan, perParticipant)};
   }, {equal: (a: Request, b: Request): boolean => a.key === b.key});
 
   private readonly progressSignal = signal<number | null>(null);
@@ -56,10 +57,8 @@ export class PlanCalculation {
   private readonly resource = resource({
     params: (): Request => this.request(),
     loader: async ({params, abortSignal}): Promise<PlanResult> => {
-      // Die Ergebnisse kommen als Listen zurück; so lassen sie sich wieder den Positionen zuordnen. Jede Änderung an
-      // Positionen oder Städten hätte eine neue Anfrage ausgelöst und diese hier abgebrochen.
-      const plan: Plan = this.store.plan();
-      const positions: Position[] = [...plan.debit, ...plan.credit];
+      // Die Ergebnisse kommen als Listen in der Reihenfolge des Plans zurück; über ihn finden sie zu den IDs
+      const positions: Position[] = positionsOf(params.plan);
       const busySince: number = this.busySince ??= performance.now();
       const onProgress = (share: number): void => {
         if (!abortSignal.aborted && performance.now() - busySince >= LONG_CALCULATION_MS) {
@@ -68,7 +67,7 @@ export class PlanCalculation {
       };
       let calculation: EngineResult;
       try {
-        calculation = await this.runner.run(params.data, params.perParticipant, abortSignal, onProgress);
+        calculation = await this.runner.run(params.plan, params.perParticipant, abortSignal, onProgress);
       } finally {
         // Abgebrochen heißt: Die nächste Rechnung läuft schon und übernimmt den Ladebalken
         if (!abortSignal.aborted) {
@@ -79,9 +78,9 @@ export class PlanCalculation {
       return {
         key: params.key,
         calculation,
-        results: new ScenarioResults(calculation.scenarios, calculation.values, plan.contextRange),
-        positionSums: new Map<Position, ValueRange>(positions.map((position: Position, i: number): [Position, ValueRange] =>
-          [position, calculation.positionSums[i]])),
+        results: new ScenarioResults(calculation.scenarios, calculation.values, params.plan),
+        positionSums: new Map<string, ValueRange>(positions.map((position: Position, i: number): [string, ValueRange] =>
+          [position.id, calculation.positionSums[i]])),
       };
     },
   });

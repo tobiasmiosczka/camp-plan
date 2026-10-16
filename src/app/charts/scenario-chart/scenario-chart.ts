@@ -12,16 +12,18 @@ import {cityName} from '../../i18n/labels';
 import {Messages} from '../../i18n/de';
 import {LanguageStore} from '../../language-store';
 import {ChartSource, ReportChart} from '../../report';
-import {PlanStore} from '../../plan-store';
 import {ThemeStore} from '../../theme-store';
 import {ValueRange} from '../../value-range';
 import {ChartStyle, Figure, reportChart, withAlpha} from '../chart-style';
 
 const DIMENSION_LABELS: Record<ContextType, 'participantsTotal' | 'leaders' | 'days'> = {
-  [ContextType.PARTICIPANTS]: 'participantsTotal',
-  [ContextType.LEADERS]: 'leaders',
-  [ContextType.DAYS]: 'days',
+  participants: 'participantsTotal',
+  leaders: 'leaders',
+  days: 'days',
 };
+
+/** In der Reihenfolge der Auswahl; die Städte folgen danach. */
+const CONTEXT_TYPES: readonly ContextType[] = ['participants', 'leaders', 'days'];
 
 interface DimensionOption {
   label: string;
@@ -47,29 +49,24 @@ export class ScenarioChart implements ChartSource {
 
   readonly results = input.required<ScenarioResults>();
 
-  readonly cities = input.required<City[]>();
+  readonly cities = input.required<readonly City[]>();
 
   readonly perParticipant = input<boolean>(false);
 
-  private readonly store = inject(PlanStore);
   private readonly theme = inject(ThemeStore);
   protected readonly t = inject(LanguageStore).messages;
 
   protected readonly dimensionOptions = computed((): DimensionOption[] => {
-    // Städte werden an Ort und Stelle umbenannt; erst dieser Zähler macht das sichtbar
-    this.store.labels();
     const results: ScenarioResults = this.results();
     const t: Messages = this.t();
-    const types: Dimension[] = [ContextType.PARTICIPANTS, ContextType.LEADERS, ContextType.DAYS]
-      .map((type: ContextType): Dimension => ({kind: 'type', type}));
-    const cities: Dimension[] = this.cities().map((city: City): Dimension => ({kind: 'city', city}));
-    return [...types, ...cities].map((dimension: Dimension): DimensionOption => ({
-      label: dimension.kind === 'type'
-        ? t.common[DIMENSION_LABELS[dimension.type]]
-        : t.charts.participantsFrom(cityName(dimension.city, t)),
-      dimension,
-      varies: results.domain(dimension).length > 1,
-    }));
+    const option = (label: string, dimension: Dimension): DimensionOption =>
+      ({label, dimension, varies: results.domain(dimension).length > 1});
+    return [
+      ...CONTEXT_TYPES.map((type: ContextType): DimensionOption =>
+        option(t.common[DIMENSION_LABELS[type]], {kind: 'type', type})),
+      ...this.cities().map((city: City): DimensionOption =>
+        option(t.charts.participantsFrom(cityName(city, t)), {kind: 'city', city: city.id})),
+    ];
   });
 
   /** Bleibt bei einer neuen Rechnung erhalten, solange es die gewählten Dimensionen noch gibt. */
@@ -82,11 +79,11 @@ export class ScenarioChart implements ChartSource {
         return {x: previous.value.x, y: known(previous.value.y) ? previous.value.y : null};
       }
       // Standard: Teilnehmer und Leiter, sofern sie variieren, sonst die Tage
-      const varying: Dimension[] = [ContextType.PARTICIPANTS, ContextType.LEADERS]
+      const varying: Dimension[] = (['participants', 'leaders'] as const)
         .map((type: ContextType): Dimension => ({kind: 'type', type}))
         .filter((dimension: Dimension): boolean => options.some((option: DimensionOption): boolean =>
           option.varies && sameDimension(option.dimension, dimension)));
-      return {x: varying[0] ?? {kind: 'type', type: ContextType.DAYS}, y: varying[1] ?? null};
+      return {x: varying[0] ?? {kind: 'type', type: 'days'}, y: varying[1] ?? null};
     },
   });
 

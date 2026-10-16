@@ -1,30 +1,30 @@
-import {computed, effect, inject, Injectable, linkedSignal, signal} from '@angular/core';
+import {computed, effect, inject, Injectable, signal} from '@angular/core';
+import {City, newCity} from './calculation/city';
+import {AdjustableType} from './calculation/context';
+import {Modifier} from './calculation/modifiers';
 import {
-  dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromData, planFromJson, planToData
+  dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromJson, planToData, positionsOf, Side
 } from './calculation/plan';
-import {City} from './calculation/city';
-import {ContextType} from './calculation/context';
-import {GroupModifier, PerCityModifier, PositionModifier} from './calculation/modifiers';
-import {Position} from './calculation/position';
+import {newPosition, Position, sortModifiers} from './calculation/position';
 import {Range} from './calculation/range';
 import {fileName, saveFile} from './download';
 import {LanguageStore} from './language-store';
-
-/** Kontoseite einer Position. */
-export type Side = 'debit' | 'credit';
+import {readStored, writeStored} from './storage';
 
 /** Kleinster erlaubter Wert je Rahmenbedingung: ohne Tag kein Lager, ohne Leiter geht es zur Not. */
-export const RANGE_MIN: Record<ContextType.DAYS | ContextType.LEADERS, number> = {
-  [ContextType.DAYS]: 1,
-  [ContextType.LEADERS]: 0,
-};
+export const RANGE_MIN: Record<AdjustableType, number> = {days: 1, leaders: 0};
+
+/** Wo ein gelöschtes Element stand, damit es sich an derselben Stelle wieder einfügen lässt. */
+export interface Removed<T> {
+  item: T;
+  index: number;
+}
 
 /**
  * Hält den Plan, ist die einzige Stelle, die ihn verändert, und speichert jede Änderung im Browser.
  *
- * Das Modell wird an Ort und Stelle geändert, damit Positionen und Städte ihre Identität behalten (Faktoren verweisen
- * auf Städte, Ergebnisse auf Positionen). Kein Signal bemerkt eine solche Änderung; deshalb zählt jede Methode hier
- * {@link revision} hoch. Komponenten ändern das Modell nie selbst.
+ * Der Plan ist unveränderlich: Jede Methode ersetzt ihn durch einen neuen, in dem nur der geänderte Teil neu ist.
+ * Städte und Positionen werden über ihre ID angesprochen.
  */
 @Injectable({providedIn: 'root'})
 export class PlanStore {
@@ -34,136 +34,123 @@ export class PlanStore {
   /** Für die Namen neuer Städte und Positionen. */
   private readonly messages = inject(LanguageStore).messages;
 
-  readonly plan = signal<Plan>(this.stored());
+  private readonly planSignal = signal<Plan>(this.stored());
+  readonly plan = this.planSignal.asReadonly();
 
-  private readonly revisionSignal = signal<number>(0);
-  /** Zählt jede Änderung am geladenen Plan. */
-  readonly revision = this.revisionSignal.asReadonly();
-
-  private readonly labelsSignal = signal<number>(0);
-  /** Zählt nur umbenannte Städte: Diagramme zeigen ihre Namen, rechnen muss dafür niemand. */
-  readonly labels = this.labelsSignal.asReadonly();
-
-  /**
-   * Projektname als eigenes Signal: Umbenennen soll Titel und Anzeige aktualisieren, aber keine neue Rechnung
-   * auslösen. Folgt automatisch, wenn ein anderer Plan geladen wird.
-   */
-  readonly name = linkedSignal<string>((): string => this.plan().name);
+  readonly name = computed((): string => this.plan().name);
 
   /** Zeigt alle Beträge pro Teilnehmer statt als Gesamtsumme. */
   readonly perParticipant = signal<boolean>(false);
 
-  /** Der Plan als reine Daten, einmal je Änderung erzeugt: für Speicher, Datei und Rechnung. */
-  readonly data = computed((): PlanData => {
-    this.revision();
-    this.name();
-    return planToData(this.plan());
-  });
+  /** Der Plan im Dateiformat, für Speicher und Datei. */
+  readonly data = computed((): PlanData => planToData(this.plan()));
 
   constructor() {
     // Als Effekt: Mehrere Änderungen in einem Zug werden nur einmal gespeichert
-    effect((): void => this.save(this.data()));
+    effect((): void => writeStored(PlanStore.STORAGE_KEY, dataToJson(this.data())));
   }
 
   // Rahmenbedingungen und Städte
 
-  setRange(type: ContextType.DAYS | ContextType.LEADERS, bound: keyof Range, value: number): void {
-    this.setBound(this.plan().contextRange.get(type), bound, value, RANGE_MIN[type]);
+  setRange(type: AdjustableType, bound: keyof Range, value: number): void {
+    if (Number.isFinite(value)) {
+      this.update((plan: Plan): Plan => ({...plan, [type]: withBound(plan[type], bound, value, RANGE_MIN[type])}));
+    }
   }
 
-  setCityName(city: City, name: string): void {
-    city.setName(name);
-    this.labelsSignal.update((labels: number): number => labels + 1);
-    this.changed();
+  setCityName(id: string, name: string): void {
+    this.updateCity(id, (city: City): City => city.others ? city : {...city, name});
   }
 
-  setCityRange(city: City, bound: keyof Range, value: number): void {
-    this.setBound(city.getParticipants(), bound, value, 0);
+  setCityRange(id: string, bound: keyof Range, value: number): void {
+    if (Number.isFinite(value)) {
+      this.updateCity(id, (city: City): City =>
+        ({...city, participants: withBound(city.participants, bound, value, 0)}));
+    }
   }
 
+  /** Fügt eine Stadt vor „Sonstige“ ein. */
   addCity(): void {
-    this.plan().contextRange.addCity(new City(this.messages().cities.newCity, {start: 0, end: 10}));
-    this.changed();
+    this.insertCity(newCity(this.messages().cities.newCity, {start: 0, end: 10}), Infinity);
   }
 
   /** Positionen mit einem Faktor „pro Teilnehmer aus …“ für diese Stadt; solange es welche gibt, bleibt sie. */
-  usersOf(city: City): Position[] {
-    const plan: Plan = this.plan();
-    return [...plan.debit, ...plan.credit].filter((position: Position): boolean => position.getModifiers()
-      .some((modifier: PositionModifier): boolean => modifier instanceof PerCityModifier && modifier.getCity() === city));
+  usersOf(id: string): Position[] {
+    return positionsOf(this.plan()).filter((position: Position): boolean => position.modifiers
+      .some((modifier: Modifier): boolean => modifier.kind === 'city' && modifier.city === id));
   }
 
-  /** Gibt die bisherige Stelle zurück, damit sich das Löschen mit {@link restoreCity} rückgängig machen lässt. */
-  removeCity(city: City): number {
-    const index: number = this.plan().contextRange.removeCity(city);
-    this.changed();
-    return index;
+  /** „Sonstige“ bleibt immer; das Ergebnis lässt sich mit {@link restoreCity} wieder einfügen. */
+  removeCity(id: string): Removed<City> | null {
+    const index: number = this.plan().cities.findIndex((city: City): boolean => city.id === id && !city.others);
+    if (index < 0) {
+      return null;
+    }
+    const item: City = this.plan().cities[index];
+    this.update((plan: Plan): Plan => ({...plan, cities: plan.cities.filter((city: City): boolean => city.id !== id)}));
+    return {item, index};
   }
 
-  restoreCity(city: City, index: number): void {
-    this.plan().contextRange.addCity(city, index);
-    this.changed();
+  restoreCity({item, index}: Removed<City>): void {
+    this.insertCity(item, index);
   }
 
   // Positionen und Faktoren
 
-  setTitle(position: Position, title: string): void {
-    position.setTitle(title);
-    this.changed();
+  setTitle(id: string, title: string): void {
+    this.updatePosition(id, (position: Position): Position => ({...position, title}));
   }
 
-  setAmount(position: Position, amount: number | null): void {
-    position.setAmount(amount ?? 0);
-    this.changed();
+  setAmount(id: string, amount: number | null): void {
+    this.updatePosition(id, (position: Position): Position => ({...position, amount: amount ?? 0}));
   }
 
-  setGroupSize(modifier: GroupModifier, groupSize: number | null): void {
-    modifier.setGroupSize(groupSize ?? 0);
-    this.changed();
+  /** `index`: die Stelle des Faktors in der Position. */
+  setGroupSize(id: string, index: number, groupSize: number | null): void {
+    this.updateModifier(id, index, (modifier: Modifier): Modifier =>
+      'groupSize' in modifier ? {...modifier, groupSize: groupSize ?? 0} : modifier);
   }
 
-  setCity(modifier: PerCityModifier, city: City): void {
-    modifier.setCity(city);
-    this.changed();
+  setCity(id: string, index: number, city: string): void {
+    this.updateModifier(id, index, (modifier: Modifier): Modifier =>
+      modifier.kind === 'city' ? {...modifier, city} : modifier);
   }
 
-  addModifier(position: Position, modifier: PositionModifier): void {
-    position.addModifier(modifier);
-    this.changed();
+  addModifier(id: string, modifier: Modifier): void {
+    this.updatePosition(id, (position: Position): Position =>
+      ({...position, modifiers: sortModifiers([...position.modifiers, modifier])}));
   }
 
-  removeModifier(position: Position, modifier: PositionModifier): void {
-    position.removeModifier(modifier);
-    this.changed();
+  removeModifier(id: string, index: number): void {
+    this.updatePosition(id, (position: Position): Position =>
+      ({...position, modifiers: position.modifiers.filter((_: Modifier, i: number): boolean => i !== index)}));
   }
 
   addPosition(side: Side): void {
-    this.plan()[side].push(new Position(this.messages().positions.newPosition, 0));
-    this.changed();
+    this.update((plan: Plan): Plan =>
+      ({...plan, [side]: [...plan[side], newPosition(this.messages().positions.newPosition, 0)]}));
   }
 
-  /** Gibt die bisherige Stelle zurück, damit sich das Löschen mit {@link restorePosition} rückgängig machen lässt. */
-  removePosition(side: Side, position: Position): number {
-    const positions: Position[] = this.plan()[side];
-    const index: number = positions.indexOf(position);
-    if (index >= 0) {
-      positions.splice(index, 1);
-      this.changed();
+  /** Das Ergebnis lässt sich mit {@link restorePosition} wieder einfügen. */
+  removePosition(side: Side, id: string): Removed<Position> | null {
+    const index: number = this.plan()[side].findIndex((position: Position): boolean => position.id === id);
+    if (index < 0) {
+      return null;
     }
-    return index;
+    const item: Position = this.plan()[side][index];
+    this.update((plan: Plan): Plan =>
+      ({...plan, [side]: plan[side].filter((position: Position): boolean => position.id !== id)}));
+    return {item, index};
   }
 
-  restorePosition(side: Side, position: Position, index: number): void {
-    const positions: Position[] = this.plan()[side];
-    positions.splice(Math.min(index, positions.length), 0, position);
-    this.changed();
+  restorePosition(side: Side, {item, index}: Removed<Position>): void {
+    this.update((plan: Plan): Plan => ({...plan, [side]: inserted(plan[side], item, index)}));
   }
 
   // Ganzer Plan
 
   rename(name: string): void {
-    this.plan().name = name;
-    this.name.set(name);
+    this.update((plan: Plan): Plan => ({...plan, name}));
   }
 
   download(): void {
@@ -175,63 +162,78 @@ export class PlanStore {
   }
 
   load(json: string): void {
-    this.plan.set(planFromJson(json));
+    this.planSignal.set(planFromJson(json));
   }
 
-  /** Lädt einen Stand aus {@link data} wieder, etwa um ein Zurücksetzen rückgängig zu machen. */
-  restore(data: PlanData): void {
-    this.plan.set(planFromData(data));
+  /** Setzt einen früheren Stand wieder ein, etwa um ein Zurücksetzen rückgängig zu machen. */
+  restore(plan: Plan): void {
+    this.planSignal.set(plan);
   }
 
   reset(): void {
-    this.plan.set(defaultPlan());
+    this.planSignal.set(defaultPlan());
   }
 
   /** Ersetzt den Plan durch einen leeren und setzt die Ansichtseinstellungen zurück. */
   clear(): void {
     this.perParticipant.set(false);
-    this.plan.set(emptyPlan());
+    this.planSignal.set(emptyPlan());
   }
 
-  /** Speichert den aktuellen Stand im Browser, damit er ein Neuladen übersteht. */
-  private save(data: PlanData): void {
-    try {
-      localStorage.setItem(PlanStore.STORAGE_KEY, dataToJson(data));
-    } catch {
-      // Ohne Browser-Speicher (z. B. privater Modus) geht nur das automatische Zwischenspeichern verloren.
-    }
+  private update(change: (plan: Plan) => Plan): void {
+    this.planSignal.update(change);
   }
 
-  /** Ganze Zahl ab `min`; die andere Grenze rückt mit, damit der Bereich gültig bleibt. */
-  private setBound(range: Range, bound: keyof Range, value: number, min: number): void {
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    range[bound] = Math.max(min, Math.round(value));
-    if (range.start > range.end) {
-      if (bound === 'start') {
-        range.end = range.start;
-      } else {
-        range.start = range.end;
-      }
-    }
-    this.changed();
+  private updateCity(id: string, change: (city: City) => City): void {
+    this.update((plan: Plan): Plan =>
+      ({...plan, cities: plan.cities.map((city: City): City => city.id === id ? change(city) : city)}));
   }
 
-  private changed(): void {
-    this.revisionSignal.update((revision: number): number => revision + 1);
+  /** Vor „Sonstige“, das immer am Ende bleibt. */
+  private insertCity(city: City, index: number): void {
+    this.update((plan: Plan): Plan =>
+      ({...plan, cities: inserted(plan.cities, city, Math.min(index, plan.cities.length - 1))}));
+  }
+
+  private updatePosition(id: string, change: (position: Position) => Position): void {
+    // Die andere Seite bleibt dasselbe Array
+    const apply = (positions: readonly Position[]): readonly Position[] =>
+      positions.some((position: Position): boolean => position.id === id)
+        ? positions.map((position: Position): Position => position.id === id ? change(position) : position)
+        : positions;
+    this.update((plan: Plan): Plan => ({...plan, debit: apply(plan.debit), credit: apply(plan.credit)}));
+  }
+
+  private updateModifier(id: string, index: number, change: (modifier: Modifier) => Modifier): void {
+    this.updatePosition(id, (position: Position): Position => ({
+      ...position,
+      modifiers: position.modifiers.map((modifier: Modifier, i: number): Modifier =>
+        i === index ? change(modifier) : modifier),
+    }));
   }
 
   /** Der Stand vom letzten Besuch, sonst der Beispielplan. */
   private stored(): Plan {
-    try {
-      const json = localStorage.getItem(PlanStore.STORAGE_KEY);
-      if (json) {
+    const json: string | null = readStored(PlanStore.STORAGE_KEY);
+    if (json) {
+      try {
         return planFromJson(json);
+      } catch {
+        // Defekter Speicher: mit dem Beispielplan starten.
       }
-    } catch {
-      // Defekter oder nicht verfügbarer Speicher: mit dem Beispielplan starten.
     }
     return defaultPlan();
   }
+}
+
+/** Ganze Zahl ab `min`; die andere Grenze rückt mit, damit der Bereich gültig bleibt. */
+function withBound(range: Range, bound: keyof Range, value: number, min: number): Range {
+  const next: number = Math.max(min, Math.round(value));
+  return bound === 'start'
+    ? {start: next, end: Math.max(next, range.end)}
+    : {start: Math.min(next, range.start), end: next};
+}
+
+function inserted<T>(items: readonly T[], item: T, index: number): T[] {
+  return [...items.slice(0, index), item, ...items.slice(index)];
 }

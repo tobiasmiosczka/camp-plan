@@ -1,34 +1,46 @@
-import {City} from './city';
-import {ContextType, FixedContext} from './context';
-import {PER_NIGHT, PerCityModifier, PerParticipantGroupModifier, PerPersonGroupModifier} from './modifiers';
-import {Position} from './position';
-import {defaultPlan, emptyPlan, planFromJson, planToJson} from './plan';
+import {City, newCity} from './city';
+import {Context} from './context';
+import {PER_NIGHT, perCity, perParticipantGroup, perPersonGroup} from './modifiers';
+import {newPosition, Position, positionSum} from './position';
+import {defaultPlan, emptyPlan, Plan, planFromJson, planToJson, rangeOf, withOthersLast} from './plan';
 import {enumerateScenarios} from './scenarios';
 
 describe('plan serialization', () => {
+  const withDebit = (plan: Plan, position: Position): Plan => ({...plan, debit: [...plan.debit, position]});
+
   it('restores an identical plan after a round trip', () => {
     const plan = defaultPlan();
     const restored = planFromJson(planToJson(plan));
 
     expect(planToJson(restored)).toEqual(planToJson(plan));
 
-    const context = new FixedContext(23, 4, 3);
-    expect(restored.credit.map(p => p.getSum(context))).toEqual(plan.credit.map(p => p.getSum(context)));
-    expect(restored.debit.map(p => p.getSum(context))).toEqual(plan.debit.map(p => p.getSum(context)));
+    const context: Context = {participants: 23, leaders: 4, days: 3};
+    expect(restored.credit.map(p => positionSum(p, context))).toEqual(plan.credit.map(p => positionSum(p, context)));
+    expect(restored.debit.map(p => positionSum(p, context))).toEqual(plan.debit.map(p => positionSum(p, context)));
   });
 
   it('keeps cities and modifiers that point to them', () => {
     const plan = defaultPlan();
-    const bottrop = new City('Bottrop', {start: 0, end: 5});
-    plan.contextRange.addCity(bottrop);
-    plan.credit.push(new Position('Zuschuss Bottrop', 3, [new PerCityModifier(bottrop)]));
-    const restored = planFromJson(planToJson(plan));
+    const bottrop: City = newCity('Bottrop', {start: 0, end: 5});
+    const restored = planFromJson(planToJson({
+      ...plan,
+      cities: withOthersLast([...plan.cities, bottrop]),
+      credit: [...plan.credit, newPosition('Zuschuss Bottrop', 3, [perCity(bottrop)])],
+    }));
 
-    const cities = restored.contextRange.getCities();
-    expect(cities.map(city => city.getName())).toEqual(['Dinslaken', 'Voerde', 'Hünxe/Wesel', 'Bottrop', 'Sonstige']);
-    expect(cities[3].getParticipants()).toEqual({start: 0, end: 5});
-    const modifier = restored.credit[restored.credit.length - 1].getModifiers()[0];
-    expect(modifier instanceof PerCityModifier && modifier.getCity()).toBe(cities[3]);
+    const cities = restored.cities;
+    expect(cities.map(city => city.name)).toEqual(['Dinslaken', 'Voerde', 'Hünxe/Wesel', 'Bottrop', 'Sonstige']);
+    expect(cities[3].participants).toEqual({start: 0, end: 5});
+    expect(restored.credit.at(-1)!.modifiers).toEqual([{kind: 'city', city: cities[3].id}]);
+  });
+
+  it('gives every city and position a new id when loading', () => {
+    const plan = defaultPlan();
+    const restored = planFromJson(planToJson(plan));
+    const ids = [...restored.cities, ...restored.debit, ...restored.credit].map(item => item.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(restored.cities[0].id).not.toBe(plan.cities[0].id);
   });
 
   it('reads version 1 files as a single city', () => {
@@ -38,17 +50,16 @@ describe('plan serialization', () => {
       debit: [], credit: [],
     }));
 
-    expect(restored.contextRange.getCities().map(city => city.getName())).toEqual(['Sonstige']);
-    expect(restored.contextRange.getCities()[0].isOthers()).toBe(true);
-    expect(restored.contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 10, end: 20});
+    expect(restored.cities.map(city => [city.name, city.others])).toEqual([['Sonstige', true]]);
+    expect(rangeOf(restored, 'participants')).toEqual({start: 10, end: 20});
   });
 
   it('restores an empty plan with only „Sonstige“', () => {
     const restored = planFromJson(planToJson(emptyPlan()));
 
-    expect(restored.contextRange.getCities().map(city => city.getName())).toEqual(['Sonstige']);
+    expect(restored.cities.map(city => city.name)).toEqual(['Sonstige']);
     expect(restored.debit).toEqual([]);
-    expect(enumerateScenarios(restored.contextRange).participants.length).toBe(0);
+    expect(enumerateScenarios(restored).participants.length).toBe(0);
   });
 
   it('always keeps exactly one „Sonstige“ as the last city', () => {
@@ -57,42 +68,29 @@ describe('plan serialization', () => {
       cities: [{name: 'Sonstige', participants: {start: 1, end: 2}}, {name: 'Voerde', participants: {start: 0, end: 1}}],
       debit: [], credit: [],
     }));
-    const cities = plan.contextRange.getCities();
 
-    expect(cities.map(city => [city.getName(), city.isOthers()])).toEqual([['Voerde', false], ['Sonstige', true]]);
-    expect(cities[1].getParticipants()).toEqual({start: 1, end: 2});
-    expect(plan.contextRange.removeCity(cities[1])).toBe(1);
-    expect(cities.length).toBe(2);
+    expect(plan.cities.map(city => [city.name, city.others])).toEqual([['Voerde', false], ['Sonstige', true]]);
+    expect(plan.cities[1].participants).toEqual({start: 1, end: 2});
   });
 
   it('keeps the project name and accepts files without one', () => {
-    const plan = defaultPlan();
-    plan.name = 'Sommerlager 2027';
-
-    expect(planFromJson(planToJson(plan)).name).toBe('Sommerlager 2027');
+    expect(planFromJson(planToJson({...defaultPlan(), name: 'Sommerlager 2027'})).name).toBe('Sommerlager 2027');
     expect(planFromJson(JSON.stringify({
       version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], debit: [], credit: [],
     })).name).toBe('');
   });
 
   it('keeps the per-night modifier', () => {
-    const plan = defaultPlan();
-    plan.debit.push(new Position('Übernachtung', 10, [PER_NIGHT]));
-    const restored = planFromJson(planToJson(plan));
+    const restored = planFromJson(planToJson(withDebit(defaultPlan(), newPosition('Übernachtung', 10, [PER_NIGHT]))));
 
-    expect(restored.debit[restored.debit.length - 1].getModifiers()).toEqual([PER_NIGHT]);
+    expect(restored.debit.at(-1)!.modifiers).toEqual([PER_NIGHT]);
   });
 
   it('keeps both kinds of group modifiers with their size', () => {
-    const plan = defaultPlan();
-    plan.debit.push(new Position('Gruppen', 10, [new PerPersonGroupModifier(6), new PerParticipantGroupModifier(4)]));
-    const restored = planFromJson(planToJson(plan));
-    const [persons, participants] = restored.debit[restored.debit.length - 1].getModifiers();
+    const groups = newPosition('Gruppen', 10, [perPersonGroup(6), perParticipantGroup(4)]);
+    const restored = planFromJson(planToJson(withDebit(defaultPlan(), groups)));
 
-    expect(persons).toBeInstanceOf(PerPersonGroupModifier);
-    expect((persons as PerPersonGroupModifier).getGroupSize()).toBe(6);
-    expect(participants).toBeInstanceOf(PerParticipantGroupModifier);
-    expect((participants as PerParticipantGroupModifier).getGroupSize()).toBe(4);
+    expect(restored.debit.at(-1)!.modifiers).toEqual([perPersonGroup(6), perParticipantGroup(4)]);
   });
 
   it('rejects files that are not a plan', () => {

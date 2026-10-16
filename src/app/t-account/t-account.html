@@ -12,12 +12,12 @@
 
       <div class="t-body debit">
         <app-position-table side="debit" [positions]="plan().debit" [sums]="positionSums()"
-                            [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                            [cities]="plan().cities" [perParticipant]="perParticipant()"
                             [loading]="loading()"></app-position-table>
       </div>
       <div class="t-body credit">
         <app-position-table side="credit" [positions]="plan().credit" [sums]="positionSums()"
-                            [cities]="contextRange().getCities()" [perParticipant]="perParticipant()"
+                            [cities]="plan().cities" [perParticipant]="perParticipant()"
                             [loading]="loading()"></app-position-table>
       </div>
 

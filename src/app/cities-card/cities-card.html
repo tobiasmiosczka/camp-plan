@@ -5,26 +5,26 @@
   </mat-card-header>
   <mat-card-content>
     <div class="city-list">
-      @for (city of contextRange().getCities(); track city) {
+      @for (city of cities(); track city.id) {
         <div class="city">
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-name">
             <mat-label>{{ t().common.city }}</mat-label>
-            <input matInput [readonly]="city.isOthers()" [ngModel]="cityName(city)"
+            <input matInput [readonly]="city.others" [ngModel]="cityName(city)"
                    (ngModelChange)="setCityName(city, $event)"/>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
             <mat-label>{{ t().common.from }}</mat-label>
             <input matInput type="number" min="0" step="1"
-                   [ngModel]="city.getParticipants().start"
+                   [ngModel]="city.participants.start"
                    (ngModelChange)="setCityRange(city, 'start', $event)"/>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic" class="city-count">
             <mat-label>{{ t().common.to }}</mat-label>
-            <input matInput type="number" [min]="city.getParticipants().start" step="1"
-                   [ngModel]="city.getParticipants().end"
+            <input matInput type="number" [min]="city.participants.start" step="1"
+                   [ngModel]="city.participants.end"
                    (ngModelChange)="setCityRange(city, 'end', $event)"/>
           </mat-form-field>
-          @if (!city.isOthers()) {
+          @if (!city.others) {
             <button mat-icon-button (click)="removeCity(city)" [attr.aria-label]="t().cities.remove"
                     [matTooltip]="t().cities.remove">
               <mat-icon>delete</mat-icon>

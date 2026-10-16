@@ -1,22 +1,22 @@
 import { planFromJson } from '../calculation/plan';
-import {City} from '../calculation/city';
-import {PER_NIGHT, PerCityModifier, PerParticipantGroupModifier} from '../calculation/modifiers';
+import {newCity, othersCity} from '../calculation/city';
+import {PER_NIGHT, perCity, perParticipantGroup} from '../calculation/modifiers';
 import { DE } from './de';
 import { EN } from './en';
 import { cityName, describeModifier, fileErrorMessage } from './labels';
 
 describe('labels', () => {
   it('describes modifiers in the chosen language', () => {
-    const others = City.others();
-    expect(describeModifier(PER_NIGHT, EN)).toBe('per night');
-    expect(describeModifier(new PerParticipantGroupModifier(8), EN)).toBe('per 8 participants');
-    expect(describeModifier(new PerCityModifier(others), EN)).toBe('per participant from Other');
-    expect(describeModifier(new PerParticipantGroupModifier(8), DE)).toBe('pro 8 Teilnehmer');
+    const others = othersCity();
+    expect(describeModifier(PER_NIGHT, [], EN)).toBe('per night');
+    expect(describeModifier(perParticipantGroup(8), [], EN)).toBe('per 8 participants');
+    expect(describeModifier(perCity(others), [others], EN)).toBe('per participant from Other');
+    expect(describeModifier(perParticipantGroup(8), [], DE)).toBe('pro 8 Teilnehmer');
   });
 
   it('translates only the name of the catch-all city', () => {
-    expect(cityName(City.others(), EN)).toBe('Other');
-    expect(cityName(new City('Dinslaken', {start: 0, end: 1}), EN)).toBe('Dinslaken');
+    expect(cityName(othersCity(), EN)).toBe('Other');
+    expect(cityName(newCity('Dinslaken', {start: 0, end: 1}), EN)).toBe('Dinslaken');
   });
 
   it('translates errors in plan files', () => {

@@ -172,13 +172,19 @@ describe('architecture', () => {
     expect(violations).toEqual([]);
   });
 
-  it('leaves the browser storage to the stores', () => {
+  it('leaves the browser storage to the stores, through storage.ts', () => {
     const stores: string[] = ['app/plan-store.ts', 'app/theme-store.ts', 'app/language-store.ts'];
-    const violations: string[] = files
-      .filter((source: SourceFile): boolean => !stores.includes(source.path) && /\blocalStorage\b/.test(source.content))
+    const direct: string[] = files
+      .filter((source: SourceFile): boolean =>
+        source.path !== 'app/storage.ts' && /\blocalStorage\b/.test(source.content))
       .map((source: SourceFile): string => show(source, 'localStorage'));
+    const users: string[] = files
+      .filter((source: SourceFile): boolean => !stores.includes(source.path) && source.imports
+        .some((imported: Import): boolean => imported.target === 'app/storage.ts'))
+      .map((source: SourceFile): string => show(source, 'storage.ts'));
 
-    expect(violations).toEqual([]);
+    expect(direct).toEqual([]);
+    expect(users).toEqual([]);
   });
 
   it('injects dependencies with inject() instead of constructor parameters', () => {

@@ -16,7 +16,7 @@
       @if (result(); as result) {
         <!-- Während einer neuen Rechnung bleiben die Diagramme stehen und werden nur abgedeckt: Plotly neu aufzubauen dauert -->
         <app-scenario-chart class="chart" [class.is-loading]="loading()" [attr.aria-busy]="loading()"
-                            [results]="result.results" [cities]="contextRange().getCities()"
+                            [results]="result.results" [cities]="cities()"
                             [perParticipant]="perParticipant()"></app-scenario-chart>
 
         <app-distribution-chart class="distribution" [class.is-loading]="loading()"

@@ -46,7 +46,7 @@ describe('PdfExport', () => {
     pdf.registerChart('distribution', chart('Verteilung'));
 
     // Ohne Beitrag bleibt nur der Zuschuss: in jedem Szenario ein Defizit
-    store.setAmount(store.plan().credit[0], 0);
+    store.setAmount(store.plan().credit[0].id, 0);
     const report = await pdf.report();
 
     expect(report.balance.min).toBeLessThan(0);

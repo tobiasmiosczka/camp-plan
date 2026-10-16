@@ -1,8 +1,7 @@
 import {inject, Injectable, Injector, signal, Signal} from '@angular/core';
-import {Plan} from './calculation/plan';
 import {City} from './calculation/city';
-import {ContextRange, ContextType} from './calculation/context';
-import {PositionModifier} from './calculation/modifiers';
+import {Modifier} from './calculation/modifiers';
+import {Plan, rangeOf} from './calculation/plan';
 import {Position} from './calculation/position';
 import {PlanCalculation, PlanResult} from './plan-calculation';
 import {fileName} from './download';
@@ -41,24 +40,22 @@ export class PdfExport {
   async report(): Promise<Report> {
     const result: PlanResult = await this.calculation.latest();
     const plan: Plan = this.store.plan();
-    const contextRange: ContextRange = plan.contextRange;
     const t: Messages = this.messages();
     const position = (p: Position): ReportPosition => ({
-      title: p.getTitle(),
-      amount: p.getAmount(),
-      factors: p.getModifiers().map((modifier: PositionModifier): string => describeModifier(modifier, t)).join(' × '),
-      sum: result.positionSums.get(p) ?? EMPTY_VALUE_RANGE,
+      title: p.title,
+      amount: p.amount,
+      factors: p.modifiers.map((modifier: Modifier): string => describeModifier(modifier, plan.cities, t)).join(' × '),
+      sum: result.positionSums.get(p.id) ?? EMPTY_VALUE_RANGE,
     });
     const scenarioCount: number = result.results.scenarioCount;
     const [chart, distribution] = await this.chartImages();
     return {
       name: this.store.name(),
       perParticipant: this.store.perParticipant(),
-      days: contextRange.get(ContextType.DAYS),
-      leaders: contextRange.get(ContextType.LEADERS),
-      participants: scenarioCount > 0 ? contextRange.get(ContextType.PARTICIPANTS) : {start: 0, end: 0},
-      cities: contextRange.getCities().map((city: City): ReportCity =>
-        ({name: cityName(city, t), participants: city.getParticipants()})),
+      days: plan.days,
+      leaders: plan.leaders,
+      participants: scenarioCount > 0 ? rangeOf(plan, 'participants') : {start: 0, end: 0},
+      cities: plan.cities.map((city: City): ReportCity => ({name: cityName(city, t), participants: city.participants})),
       scenarioCount,
       deficitShare: result.results.deficitShare(),
       debit: plan.debit.map(position),

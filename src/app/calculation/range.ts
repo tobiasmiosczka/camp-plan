@@ -1,7 +1,7 @@
 /** Ganzzahliger Bereich, beide Grenzen eingeschlossen. */
 export interface Range {
-  start: number;
-  end: number;
+  readonly start: number;
+  readonly end: number;
 }
 
 export function range(range: Range): number[] {

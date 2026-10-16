@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PositionTableComponent } from './position-table';
-import {City} from '../calculation/city';
-import {Position} from '../calculation/position';
+import {othersCity} from '../calculation/city';
+import {newPosition} from '../calculation/position';
 
 describe('PositionTable', () => {
   let component: PositionTableComponent;
@@ -15,9 +15,9 @@ describe('PositionTable', () => {
     fixture = TestBed.createComponent(PositionTableComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('side', 'debit');
-    fixture.componentRef.setInput('positions', [new Position('Bus', 1485)]);
+    fixture.componentRef.setInput('positions', [newPosition('Bus', 1485)]);
     fixture.componentRef.setInput('sums', new Map());
-    fixture.componentRef.setInput('cities', [City.others()]);
+    fixture.componentRef.setInput('cities', [othersCity()]);
     await fixture.whenStable();
   });
 

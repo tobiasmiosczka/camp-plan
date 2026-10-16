@@ -1,202 +1,108 @@
 import {City} from './city';
-import {Context, ContextType} from './context';
+import {Context} from './context';
 
-/** Faktoren ohne Einstellungen; es gibt jeden nur einmal. */
+/** Faktoren ohne Einstellungen. */
 export type FixedKind = 'person' | 'participant' | 'leader' | 'day' | 'night';
 /** Faktoren „pro angefangene Gruppe“ mit einstellbarer Gruppengröße. */
 export type GroupKind = 'personGroup' | 'participantGroup';
 /** Art eines Faktors, unabhängig von der Sprache: für Beschriftungen und das Dateiformat. */
 export type ModifierKind = FixedKind | GroupKind | 'city';
 
-export abstract class PositionModifier {
-
-  public abstract readonly kind: ModifierKind;
-  public abstract modify(context: Context): number;
+export interface FixedModifier {
+  readonly kind: FixedKind;
 }
 
-export abstract class FixedModifier extends PositionModifier {
-
-  public abstract override readonly kind: FixedKind;
+export interface GroupModifier {
+  readonly kind: GroupKind;
+  readonly groupSize: number;
 }
 
-export abstract class GroupModifier extends PositionModifier {
-
-  public abstract override readonly kind: GroupKind;
-  private groupSize: number;
-
-  constructor(groupSize: number) {
-    super();
-    this.groupSize = groupSize;
-  }
-
-  public getGroupSize(): number {
-    return this.groupSize;
-  }
-
-  public setGroupSize(groupSize: number): void {
-    this.groupSize = groupSize;
-  }
-
-  protected divide(count: number): number {
-    return this.groupSize > 0 ? Math.ceil(count / this.groupSize) : 0;
-  }
+/** „pro Teilnehmer aus …“; verweist über die ID auf eine Stadt des Plans. */
+export interface CityModifier {
+  readonly kind: 'city';
+  readonly city: string;
 }
 
-class PerPersonModifier extends FixedModifier {
+/** Womit der Betrag einer Position malgenommen wird. */
+export type Modifier = FixedModifier | GroupModifier | CityModifier;
 
-  readonly kind = 'person';
+export const PER_PERSON: FixedModifier = {kind: 'person'};
+export const PER_PARTICIPANT: FixedModifier = {kind: 'participant'};
+export const PER_LEADER: FixedModifier = {kind: 'leader'};
+export const PER_DAY: FixedModifier = {kind: 'day'};
+export const PER_NIGHT: FixedModifier = {kind: 'night'};
 
-  modify(context: Context): number {
-    const participants = context.get(ContextType.PARTICIPANTS) || 0;
-    const leaders = context.get(ContextType.LEADERS) || 0;
-    return participants + leaders
-  }
-
+export function perPersonGroup(groupSize: number): GroupModifier {
+  return {kind: 'personGroup', groupSize};
 }
 
-export const PER_PERSON = new PerPersonModifier();
-
-export class PerPersonGroupModifier extends GroupModifier {
-
-  readonly kind = 'personGroup';
-
-  modify(context: Context): number {
-    const participants = context.get(ContextType.PARTICIPANTS);
-    const leaders = context.get(ContextType.LEADERS);
-    return this.divide(participants + leaders);
-  }
+export function perParticipantGroup(groupSize: number): GroupModifier {
+  return {kind: 'participantGroup', groupSize};
 }
 
-class PerParticipantModifier extends FixedModifier {
-
-  readonly kind = 'participant';
-
-  modify(context: Context): number {
-    return context.get(ContextType.PARTICIPANTS);
-  }
-
+export function perCity(city: City): CityModifier {
+  return {kind: 'city', city: city.id};
 }
-
-export const PER_PARTICIPANT = new PerParticipantModifier();
-
-class PerLeaderModifier extends FixedModifier {
-
-  readonly kind = 'leader';
-
-  modify(context: Context): number {
-    return context.get(ContextType.LEADERS);
-  }
-}
-
-export const PER_LEADER = new PerLeaderModifier();
-
-class PerDayModifier extends FixedModifier {
-
-  readonly kind = 'day';
-
-  modify(context: Context): number {
-    return context.get(ContextType.DAYS);
-  }
-
-}
-
-export const PER_DAY = new PerDayModifier();
-
-class PerNightModifier extends FixedModifier {
-
-  readonly kind = 'night';
-
-  modify(context: Context): number {
-    return Math.max(0, context.get(ContextType.DAYS) - 1);
-  }
-
-}
-
-export const PER_NIGHT = new PerNightModifier();
-
-export class PerParticipantGroupModifier extends GroupModifier {
-
-  readonly kind = 'participantGroup';
-
-  modify(context: Context): number {
-    return this.divide(context.get(ContextType.PARTICIPANTS));
-  }
-}
-
-export class PerCityModifier extends PositionModifier {
-
-  readonly kind = 'city';
-
-  private city: City;
-
-  constructor(city: City) {
-    super();
-    this.city = city;
-  }
-
-  public getCity(): City {
-    return this.city;
-  }
-
-  public setCity(city: City): void {
-    this.city = city;
-  }
-
-  modify(context: Context): number {
-    return context.getParticipantsFrom(this.city);
-  }
-}
-
-/** Die festen Faktoren je Art. */
-export const FIXED_MODIFIERS: Record<FixedKind, FixedModifier> = {
-  person: PER_PERSON,
-  participant: PER_PARTICIPANT,
-  leader: PER_LEADER,
-  day: PER_DAY,
-  night: PER_NIGHT,
-};
-
-/** Die Gruppenfaktoren je Art. */
-export const GROUP_MODIFIERS: Record<GroupKind, new (groupSize: number) => GroupModifier> = {
-  personGroup: PerPersonGroupModifier,
-  participantGroup: PerParticipantGroupModifier,
-};
 
 /** Alle Arten in der Reihenfolge des Auswahlmenüs; in dieser Reihenfolge stehen auch die Faktoren einer Position. */
 export const MODIFIER_KINDS: readonly ModifierKind[] = [
   'person', 'participant', 'leader', 'day', 'night', 'personGroup', 'participantGroup', 'city',
 ];
 
+const FIXED_KINDS: readonly string[] = MODIFIER_KINDS.slice(0, 5);
+const GROUP_KINDS: readonly string[] = ['personGroup', 'participantGroup'];
+
 export function isFixedKind(kind: unknown): kind is FixedKind {
-  return typeof kind === 'string' && Object.hasOwn(FIXED_MODIFIERS, kind);
+  return typeof kind === 'string' && FIXED_KINDS.includes(kind);
 }
 
 export function isGroupKind(kind: unknown): kind is GroupKind {
-  return typeof kind === 'string' && Object.hasOwn(GROUP_MODIFIERS, kind);
+  return typeof kind === 'string' && GROUP_KINDS.includes(kind);
 }
 
 /** Ein neuer Faktor, wie ihn das Menü „Faktor hinzufügen“ anlegt: Gruppen zu 10, Städte mit der ersten Stadt. */
-export function createModifier(kind: ModifierKind, cities: City[]): PositionModifier {
+export function createModifier(kind: ModifierKind, cities: readonly City[]): Modifier {
   if (isFixedKind(kind)) {
-    return FIXED_MODIFIERS[kind];
+    return {kind};
   }
   if (isGroupKind(kind)) {
-    return new GROUP_MODIFIERS[kind](10);
+    return {kind, groupSize: 10};
   }
-  return new PerCityModifier(cities[0]);
+  return perCity(cities[0]);
 }
 
-/** Sortiert nach Art, gleiche Arten nach Gruppengröße oder Stadtname. */
-export function compareModifiers(a: PositionModifier, b: PositionModifier): number {
+/** Der Faktor in einem Szenario. */
+export function factor(modifier: Modifier, context: Context): number {
+  switch (modifier.kind) {
+    case 'person':
+      return context.participants + context.leaders;
+    case 'participant':
+      return context.participants;
+    case 'leader':
+      return context.leaders;
+    case 'day':
+      return context.days;
+    case 'night':
+      return Math.max(0, context.days - 1);
+    case 'personGroup':
+      return perGroup(context.participants + context.leaders, modifier.groupSize);
+    case 'participantGroup':
+      return perGroup(context.participants, modifier.groupSize);
+    case 'city':
+      return context.cities?.get(modifier.city) ?? 0;
+  }
+}
+
+/** Angefangene Gruppen; ohne gültige Gruppengröße keine. */
+function perGroup(count: number, groupSize: number): number {
+  return groupSize > 0 ? Math.ceil(count / groupSize) : 0;
+}
+
+/** Sortiert nach Art, Gruppen nach Größe; Städte behalten ihre Reihenfolge. */
+export function compareModifiers(a: Modifier, b: Modifier): number {
   const byKind: number = MODIFIER_KINDS.indexOf(a.kind) - MODIFIER_KINDS.indexOf(b.kind);
-  if (byKind !== 0) {
-    return byKind;
+  if (byKind === 0 && 'groupSize' in a && 'groupSize' in b) {
+    return a.groupSize - b.groupSize;
   }
-  if (a instanceof GroupModifier && b instanceof GroupModifier) {
-    return a.getGroupSize() - b.getGroupSize();
-  }
-  if (a instanceof PerCityModifier && b instanceof PerCityModifier) {
-    return a.getCity().getName().localeCompare(b.getCity().getName(), undefined, {numeric: true});
-  }
-  return 0;
+  return byKind;
 }

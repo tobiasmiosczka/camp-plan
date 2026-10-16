@@ -1,13 +1,15 @@
 import {ValueRange} from '../value-range';
 import {City} from './city';
-import {Context, ContextRange, ContextType} from './context';
+import {ContextType} from './context';
+import {Plan, rangeOf} from './plan';
 import {Range, range} from './range';
 import {Progress, PROGRESS_STEP} from './progress';
 
 /** Eine Größe, nach der sich die Szenarien gegenüberstellen lassen. */
 export type Dimension =
   | { kind: 'type', type: ContextType }
-  | { kind: 'city', city: City };
+  /** `city` ist die ID der Stadt. */
+  | { kind: 'city', city: string };
 
 export function sameDimension(a: Dimension | null, b: Dimension | null): boolean {
   if (a === null || b === null) {
@@ -26,8 +28,8 @@ export function groupKey(parts: number[]): number {
 
 /** Szenarien als Spalten statt als Objekte: lässt sich ohne Kopie aus dem Web Worker übergeben. */
 export interface ScenarioColumns {
-  /** Index der einzeln aufgezählten Städte in der Städteliste des Plans. */
-  relevant: number[];
+  /** IDs der einzeln aufgezählten Städte, in der Reihenfolge des Plans. */
+  relevant: string[];
   participants: Int32Array;
   leaders: Int32Array;
   days: Int32Array;
@@ -42,35 +44,33 @@ export interface ScenarioColumns {
  * Nur die Städte in `relevant` werden einzeln aufgezählt. Die übrigen wirken sich nur über die Gesamtzahl aus und
  * werden zu einer Spanne zusammengefasst – das ergibt dieselben Ergebnisse mit weit weniger Szenarien.
  */
-export function enumerateScenarios(contextRange: ContextRange, relevant: City[] = contextRange.getCities(),
+export function enumerateScenarios(plan: Plan,
+                                   relevant: readonly string[] = plan.cities.map(({id}: City): string => id),
                                    onProgress?: Progress): ScenarioColumns {
-  const cities: City[] = contextRange.getCities();
-  const indices: number[] = cities
-    .map((city: City, i: number): number => relevant.includes(city) ? i : -1)
-    .filter((i: number): boolean => i >= 0);
-  const rest: Range = {start: 0, end: 0};
+  const cities: readonly City[] = plan.cities;
+  const enumerated: City[] = cities.filter((city: City): boolean => relevant.includes(city.id));
+  let rest: Range = {start: 0, end: 0};
   for (const city of cities) {
-    if (!relevant.includes(city)) {
-      rest.start += city.getParticipants().start;
-      rest.end += city.getParticipants().end;
+    if (!relevant.includes(city.id)) {
+      rest = {start: rest.start + city.participants.start, end: rest.end + city.participants.end};
     }
   }
   // Je relevanter Stadt ein Zähler, dahinter einer für die zusammengefassten Städte
-  const spans: Range[] = [...indices.map((i: number): Range => cities[i].getParticipants()), rest];
+  const spans: Range[] = [...enumerated.map((city: City): Range => city.participants), rest];
   const counts: number[] = spans.map((span: Range): number => span.start);
   const combinations: number = spans.reduce((product: number, span: Range): number =>
     product * (span.end - span.start + 1), 1);
   // Nur die allererste Kombination kann ganz ohne Teilnehmer sein
   const empty: number = counts.every((count: number): boolean => count === 0) ? 1 : 0;
-  const leaders: number[] = range(contextRange.get(ContextType.LEADERS));
-  const days: number[] = range(contextRange.get(ContextType.DAYS));
+  const leaders: number[] = range(plan.leaders);
+  const days: number[] = range(plan.days);
   const size: number = (combinations - empty) * leaders.length * days.length;
   const columns: ScenarioColumns = {
-    relevant: indices,
+    relevant: enumerated.map(({id}: City): string => id),
     participants: new Int32Array(size),
     leaders: new Int32Array(size),
     days: new Int32Array(size),
-    cities: indices.map((): Int32Array => new Int32Array(size)),
+    cities: enumerated.map((): Int32Array => new Int32Array(size)),
   };
 
   let i: number = 0;
@@ -90,7 +90,7 @@ export function enumerateScenarios(contextRange: ContextRange, relevant: City[] 
           columns.participants[i] = total;
           columns.leaders[i] = l;
           columns.days[i] = d;
-          for (let c = 0; c < indices.length; c++) {
+          for (let c = 0; c < enumerated.length; c++) {
             columns.cities[c][i] = counts[c];
           }
           i++;
@@ -109,37 +109,6 @@ export function enumerateScenarios(contextRange: ContextRange, relevant: City[] 
 }
 
 /**
- * Ein Szenario aus den Spalten, das auf die Zeile {@link index} zeigt. Ein Objekt für alle Szenarien statt eines je
- * Szenario: Bei vielen Städten sind es Millionen.
- */
-export class ColumnContext implements Context {
-
-  index: number = 0;
-  private readonly byCity: Map<City, Int32Array>;
-
-  /** `cities` ist die Städteliste des Plans, auf die sich `columns.relevant` bezieht. */
-  constructor(readonly columns: ScenarioColumns, cities: City[]) {
-    this.byCity = new Map<City, Int32Array>(columns.relevant.map((cityIndex: number, c: number): [City, Int32Array] =>
-      [cities[cityIndex], columns.cities[c]]));
-  }
-
-  get(type: ContextType): number {
-    switch (type) {
-      case ContextType.PARTICIPANTS:
-        return this.columns.participants[this.index];
-      case ContextType.LEADERS:
-        return this.columns.leaders[this.index];
-      case ContextType.DAYS:
-        return this.columns.days[this.index];
-    }
-  }
-
-  getParticipantsFrom(city: City): number {
-    return this.byCity.get(city)?.[this.index] ?? 0;
-  }
-}
-
-/**
  * Das Ergebnis jedes Szenarios, gruppierbar nach beliebigen Dimensionen ohne neue Rechnung.
  *
  * Städte, die nicht einzeln aufgezählt wurden, stecken nur in der Gesamtzahl. Für sie gilt ein Szenario für jede
@@ -148,10 +117,9 @@ export class ColumnContext implements Context {
  */
 export class ScenarioResults {
 
-  private readonly ranges = new Map<City, Range>();
-  /** Die einzeln aufgezählten Städte, in der Reihenfolge von `scenarios.cities`. */
-  private readonly relevant: City[];
-  private readonly isRelevant: Set<City>;
+  /** Teilnehmer je Stadt-ID. */
+  private readonly ranges = new Map<string, Range>();
+  private readonly isRelevant: Set<string>;
   private readonly participants: Range;
   private readonly leaders: Range;
   private readonly days: Range;
@@ -162,17 +130,15 @@ export class ScenarioResults {
   /** Anzahl aller echten Szenarien, als hätte man jede Stadt einzeln aufgezählt. */
   readonly scenarioCount: number;
 
-  /** Die Städte in `scenarios.relevant` werden über ihren Index in `contextRange` aufgelöst. */
-  constructor(readonly scenarios: ScenarioColumns, readonly values: Float64Array, contextRange: ContextRange) {
-    const cities: City[] = contextRange.getCities();
-    for (const city of cities) {
-      this.ranges.set(city, {...city.getParticipants()});
+  /** `plan` ist der Plan, für den gerechnet wurde. */
+  constructor(readonly scenarios: ScenarioColumns, readonly values: Float64Array, plan: Plan) {
+    for (const city of plan.cities) {
+      this.ranges.set(city.id, city.participants);
     }
-    this.relevant = scenarios.relevant.map((i: number): City => cities[i]);
-    this.isRelevant = new Set<City>(this.relevant);
-    this.participants = {...contextRange.get(ContextType.PARTICIPANTS)};
-    this.leaders = {...contextRange.get(ContextType.LEADERS)};
-    this.days = {...contextRange.get(ContextType.DAYS)};
+    this.isRelevant = new Set<string>(scenarios.relevant);
+    this.participants = rangeOf(plan, 'participants');
+    this.leaders = plan.leaders;
+    this.days = plan.days;
     // Schleifen statt map und reduce mit Funktion je Eintrag: Es sind oft Millionen Szenarien
     this.rest = scenarios.participants.slice();
     for (const column of scenarios.cities) {
@@ -198,7 +164,7 @@ export class ScenarioResults {
   private distributions(): [number, number[]] {
     let start: number = 0;
     let ways: number[] = [1];
-    this.ranges.forEach((participants: Range, city: City): void => {
+    this.ranges.forEach((participants: Range, city: string): void => {
       if (this.isRelevant.has(city)) {
         return;
       }
@@ -245,21 +211,17 @@ export class ScenarioResults {
     return this.values.length === 0;
   }
 
-  public hasCity(city: City): boolean {
-    return this.ranges.has(city);
-  }
-
   /** Alle Werte, die die Dimension annehmen kann. */
   public domain(dimension: Dimension): number[] {
     if (dimension.kind === 'city') {
       return range(this.ranges.get(dimension.city) ?? {start: 0, end: 0});
     }
     switch (dimension.type) {
-      case ContextType.PARTICIPANTS:
+      case 'participants':
         return range(this.participants);
-      case ContextType.LEADERS:
+      case 'leaders':
         return range(this.leaders);
-      case ContextType.DAYS:
+      case 'days':
         return range(this.days);
     }
   }
@@ -268,13 +230,13 @@ export class ScenarioResults {
   public aggregate(dimensions: Dimension[]): Map<number, ValueRange> {
     const groups = new Map<number, ValueRange>();
     const collapsed = (dimension: Dimension): boolean => dimension.kind === 'city' && !this.isRelevant.has(dimension.city);
-    const selected: City[] = dimensions
+    const selected: string[] = dimensions
       .filter(collapsed)
-      .map((dimension: Dimension): City => (dimension as { city: City }).city);
+      .map((dimension: Dimension): string => (dimension as { city: string }).city);
     // Spielraum der zusammengefassten Städte, die nicht ausgewählt sind
     let othersStart: number = 0;
     let othersEnd: number = 0;
-    this.ranges.forEach((participants: Range, city: City): void => {
+    this.ranges.forEach((participants: Range, city: string): void => {
       if (!this.isRelevant.has(city) && !selected.includes(city)) {
         othersStart += participants.start;
         othersEnd += participants.end;
@@ -321,14 +283,14 @@ export class ScenarioResults {
   /** Wert der Dimension je Szenario; nur für Städte, die einzeln aufgezählt wurden. */
   private column(dimension: Dimension): Int32Array {
     if (dimension.kind === 'city') {
-      return this.scenarios.cities[this.relevant.indexOf(dimension.city)];
+      return this.scenarios.cities[this.scenarios.relevant.indexOf(dimension.city)];
     }
     switch (dimension.type) {
-      case ContextType.PARTICIPANTS:
+      case 'participants':
         return this.scenarios.participants;
-      case ContextType.LEADERS:
+      case 'leaders':
         return this.scenarios.leaders;
-      case ContextType.DAYS:
+      case 'days':
         return this.scenarios.days;
     }
   }

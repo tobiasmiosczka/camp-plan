@@ -1,6 +1,6 @@
 import {inject, Injectable, OnDestroy} from '@angular/core';
 import {EngineRequest, EngineResponse, EngineResult, evaluate} from './calculation/engine';
-import {PlanData} from './calculation/plan';
+import {Plan} from './calculation/plan';
 import {Progress} from './calculation/progress';
 import {LanguageStore} from './language-store';
 
@@ -26,7 +26,7 @@ export class CalculationRunner implements OnDestroy {
   private pending: Pending | null = null;
   private nextId: number = 0;
 
-  async run(plan: PlanData, perParticipant: boolean, abortSignal?: AbortSignal,
+  async run(plan: Plan, perParticipant: boolean, abortSignal?: AbortSignal,
             onProgress?: Progress): Promise<EngineResult> {
     if (typeof Worker === 'undefined') {
       // async macht einen Fehler hier zu einem abgelehnten Promise, wie beim Worker

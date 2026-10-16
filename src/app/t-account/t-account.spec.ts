@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LanguageStore } from '../language-store';
+import { PlanStore } from '../plan-store';
+import { useTestPlan } from '../testing/test-plan';
 import { TAccount } from './t-account';
 
 describe('TAccount', () => {
@@ -30,5 +32,21 @@ describe('TAccount', () => {
     expect(text()).toContain('Add item');
     // Englische Zahlen: Euro-Zeichen vorn, Punkt als Dezimaltrenner
     expect(fixture.nativeElement.querySelector('.t-total.debit .t-total-value').textContent).toMatch(/€[\d,]+\.\d{2}/);
+  });
+
+  it('keeps the same input field while typing, although every change replaces the plan', async () => {
+    useTestPlan();
+    await fixture.whenStable();
+    const field = (): HTMLTextAreaElement => fixture.nativeElement.querySelector('.t-body.debit textarea');
+    const before: HTMLTextAreaElement = field();
+    before.focus();
+
+    before.value = 'Turnhalle';
+    before.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    expect(TestBed.inject(PlanStore).plan().debit[0].title).toBe('Turnhalle');
+    expect(field()).toBe(before);
+    expect(document.activeElement).toBe(before);
   });
 });
