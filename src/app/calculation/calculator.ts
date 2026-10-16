@@ -1,6 +1,10 @@
-import {ValueRange} from '../value-range';
-import {Context, ContextRange, ContextType, PerCityModifier, Position, PositionModifier, Range} from './position';
+import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
+import {Context, ContextRange, ContextType, FixedContext} from './context';
+import {PerCityModifier, PositionModifier} from './modifiers';
+import {Position} from './position';
+import {Range} from './range';
 import {Progress, PROGRESS_STEP} from './progress';
+import {ColumnContext, ScenarioColumns} from './scenarios';
 
 export interface Calculation {
   /** Überschuss je Szenario, in derselben Reihenfolge wie die Szenarien. */
@@ -8,7 +12,8 @@ export interface Calculation {
   /** Ausgaben und Einnahmen je Szenario, für die Verteilung. */
   debitValues: Float64Array;
   creditValues: Float64Array;
-  positionSums: Map<Position, ValueRange>;
+  /** Spanne je Position, erst Ausgaben, dann Einnahmen, in der Reihenfolge des Plans. */
+  positionSums: ValueRange[];
   debitTotal: ValueRange;
   creditTotal: ValueRange;
   balance: ValueRange;
@@ -21,8 +26,8 @@ export interface Calculation {
  * Kombinationen, also werden sie einmal in eine Tabelle gerechnet und je Szenario nur nachgeschlagen.
  * Einzeln je Szenario gerechnet werden nur Positionen mit „pro Teilnehmer aus …“.
  */
-export function calculate(contexts: Context[], contextRange: ContextRange, debit: Position[], credit: Position[],
-                          perParticipant: boolean, onProgress?: Progress): Calculation {
+export function calculate(scenarios: ScenarioColumns, contextRange: ContextRange, debit: Position[],
+                          credit: Position[], perParticipant: boolean, onProgress?: Progress): Calculation {
   const positions: Position[] = [...debit, ...credit];
   const byCity = (i: number): boolean =>
     positions[i].getModifiers().some((modifier: PositionModifier): boolean => modifier instanceof PerCityModifier);
@@ -36,18 +41,18 @@ export function calculate(contexts: Context[], contextRange: ContextRange, debit
   };
 
   const table: Table = tabulate(sheet, indices.filter((i: number): boolean => !byCity(i)), contextRange);
-  const scenarios: Scenarios = evaluateScenarios(sheet, indices.filter(byCity), table, contexts, onProgress);
+  const context = new ColumnContext(scenarios, contextRange.getCities());
+  const totals: Totals = evaluateScenarios(sheet, indices.filter(byCity), table, context, onProgress);
 
-  const orEmpty = (range: ValueRange): ValueRange => contexts.length > 0 ? range : {min: 0, max: 0};
+  const orEmpty = (range: ValueRange): ValueRange => totals.values.length > 0 ? range : {...EMPTY_VALUE_RANGE};
   return {
-    values: scenarios.values,
-    debitValues: scenarios.debitValues,
-    creditValues: scenarios.creditValues,
-    positionSums: new Map<Position, ValueRange>(positions.map((position: Position, i: number): [Position, ValueRange] =>
-      [position, orEmpty({min: sheet.mins[i], max: sheet.maxs[i]})])),
-    debitTotal: orEmpty(scenarios.debitTotal),
-    creditTotal: orEmpty(scenarios.creditTotal),
-    balance: orEmpty(scenarios.balance),
+    values: totals.values,
+    debitValues: totals.debitValues,
+    creditValues: totals.creditValues,
+    positionSums: positions.map((_: Position, i: number): ValueRange => orEmpty({min: sheet.mins[i], max: sheet.maxs[i]})),
+    debitTotal: orEmpty(totals.debitTotal),
+    creditTotal: orEmpty(totals.creditTotal),
+    balance: orEmpty(totals.balance),
   };
 }
 
@@ -90,7 +95,7 @@ function tabulate(sheet: Sheet, tabled: number[], contextRange: ContextRange): T
   for (let p = participants.start; p <= participants.end; p++) {
     for (let l = leaders.start; l <= leaders.end; l++) {
       for (let d = days.start; d <= days.end; d++) {
-        const context = new Context(p, l, d);
+        const context = new FixedContext(p, l, d);
         const at: number = index(p, l, d);
         for (const i of tabled) {
           const side: Float64Array = i < sheet.debitCount ? table.debit : table.credit;
@@ -103,7 +108,7 @@ function tabulate(sheet: Sheet, tabled: number[], contextRange: ContextRange): T
 }
 
 /** Überschuss, Ausgaben und Einnahmen je Szenario samt ihren Spannen. */
-interface Scenarios {
+interface Totals {
   values: Float64Array;
   debitValues: Float64Array;
   creditValues: Float64Array;
@@ -113,20 +118,22 @@ interface Scenarios {
 }
 
 /** Schlägt jedes Szenario in der Tabelle nach und rechnet nur die Positionen in `individual` einzeln dazu. */
-function evaluateScenarios(sheet: Sheet, individual: number[], table: Table, contexts: Context[],
-                           onProgress?: Progress): Scenarios {
-  const scenarios: Scenarios = {
-    values: new Float64Array(contexts.length),
-    debitValues: new Float64Array(contexts.length),
-    creditValues: new Float64Array(contexts.length),
+function evaluateScenarios(sheet: Sheet, individual: number[], table: Table, context: ColumnContext,
+                           onProgress?: Progress): Totals {
+  const {participants, leaders, days} = context.columns;
+  const count: number = participants.length;
+  const totals: Totals = {
+    values: new Float64Array(count),
+    debitValues: new Float64Array(count),
+    creditValues: new Float64Array(count),
     debitTotal: {min: Infinity, max: -Infinity},
     creditTotal: {min: Infinity, max: -Infinity},
     balance: {min: Infinity, max: -Infinity},
   };
-  for (let c = 0; c < contexts.length; c++) {
-    const context: Context = contexts[c];
-    const p: number = context.get(ContextType.PARTICIPANTS);
-    const at: number = table.index(p, context.get(ContextType.LEADERS), context.get(ContextType.DAYS));
+  for (let c = 0; c < count; c++) {
+    context.index = c;
+    const p: number = participants[c];
+    const at: number = table.index(p, leaders[c], days[c]);
     let debitSum: number = table.debit[at];
     let creditSum: number = table.credit[at];
     for (const i of individual) {
@@ -136,17 +143,17 @@ function evaluateScenarios(sheet: Sheet, individual: number[], table: Table, con
         creditSum += sum(sheet, i, context, p);
       }
     }
-    extend(scenarios.debitTotal, debitSum);
-    extend(scenarios.creditTotal, creditSum);
-    extend(scenarios.balance, creditSum - debitSum);
-    scenarios.values[c] = creditSum - debitSum;
-    scenarios.debitValues[c] = debitSum;
-    scenarios.creditValues[c] = creditSum;
+    extend(totals.debitTotal, debitSum);
+    extend(totals.creditTotal, creditSum);
+    extend(totals.balance, creditSum - debitSum);
+    totals.values[c] = creditSum - debitSum;
+    totals.debitValues[c] = debitSum;
+    totals.creditValues[c] = creditSum;
     if (onProgress && c % PROGRESS_STEP === 0) {
-      onProgress(c / contexts.length);
+      onProgress(c / count);
     }
   }
-  return scenarios;
+  return totals;
 }
 
 function extend(range: ValueRange, value: number): void {

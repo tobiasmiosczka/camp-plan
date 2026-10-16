@@ -1,4 +1,4 @@
-import {Range} from './calculation/position';
+import {Range} from './calculation/range';
 import {ValueRange} from './value-range';
 
 export interface ReportPosition {

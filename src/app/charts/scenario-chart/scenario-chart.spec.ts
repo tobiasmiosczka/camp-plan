@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { evaluate } from '../../calculation/engine';
 import { defaultPlan, Plan, planToData } from '../../calculation/plan';
-import { ContextType } from '../../calculation/position';
+import {ContextType} from '../../calculation/context';
 import { ScenarioResults } from '../../calculation/scenarios';
 import { PlanStore } from '../../plan-store';
 import { ScenarioChart } from './scenario-chart';

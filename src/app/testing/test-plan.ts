@@ -1,6 +1,10 @@
 import {TestBed} from '@angular/core/testing';
 import {Plan} from '../calculation/plan';
-import {City, ContextRange, ContextType, PER_DAY, PER_PARTICIPANT, PER_PERSON, PerCityModifier, Position, Range} from '../calculation/position';
+import {City} from '../calculation/city';
+import {ContextRange, ContextType} from '../calculation/context';
+import {PER_DAY, PER_PARTICIPANT, PER_PERSON, PerCityModifier} from '../calculation/modifiers';
+import {Position} from '../calculation/position';
+import {Range} from '../calculation/range';
 import {PlanStore} from '../plan-store';
 
 /**

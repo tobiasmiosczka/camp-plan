@@ -2,7 +2,7 @@ import {Component, computed, effect, inject, Signal, untracked} from '@angular/c
 import {NgTemplateOutlet} from '@angular/common';
 import {MatCardModule} from '@angular/material/card';
 import {MatSnackBar} from '@angular/material/snack-bar';
-import {ContextRange} from '../calculation/position';
+import {ContextRange} from '../calculation/context';
 import {CitiesCard} from '../cities-card/cities-card';
 import {LanguageStore} from '../language-store';
 import {PdfExport} from '../pdf-export';

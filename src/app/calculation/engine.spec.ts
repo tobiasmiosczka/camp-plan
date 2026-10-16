@@ -1,21 +1,20 @@
 import {calculate} from './calculator';
 import {calculationKey, evaluate, transferables} from './engine';
 import {defaultPlan, planToData} from './plan';
-import {ContextType, Position} from './position';
-import {ScenarioResults} from './scenarios';
+import {ContextType} from './context';
+import {enumerateScenarios, ScenarioResults} from './scenarios';
 
 describe('evaluate', () => {
   it('returns the same numbers as calculating the plan directly', () => {
     const plan = defaultPlan();
     const result = evaluate(planToData(plan), false);
     const relevant = plan.contextRange.getCities().slice(0, 3);
-    const contexts = plan.contextRange.getPermutations(relevant);
-    const expected = calculate(contexts, plan.contextRange, plan.debit, plan.credit, false);
+    const scenarios = enumerateScenarios(plan.contextRange, relevant);
+    const expected = calculate(scenarios, plan.contextRange, plan.debit, plan.credit, false);
 
     expect(result.values).toEqual(expected.values);
     expect(result.balance).toEqual(expected.balance);
-    const positions: Position[] = [...plan.debit, ...plan.credit];
-    expect(result.positionSums).toEqual(positions.map(position => expected.positionSums.get(position)));
+    expect(result.positionSums).toEqual(expected.positionSums);
   });
 
   it('lists scenarios as columns that resolve to the cities of the plan', () => {

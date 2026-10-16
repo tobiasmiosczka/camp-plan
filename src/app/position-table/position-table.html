@@ -55,8 +55,8 @@
         </button>
       </mat-chip-set>
       <mat-menu #modifierMenu="matMenu">
-        @for (option of modifierOptions; track option.kind) {
-          <button mat-menu-item (click)="addModifier(element, option)">{{ t().modifiers.options[option.kind] }}</button>
+        @for (kind of modifierKinds; track kind) {
+          <button mat-menu-item (click)="addModifier(element, kind)">{{ t().modifiers.options[kind] }}</button>
         }
       </mat-menu>
     </td>

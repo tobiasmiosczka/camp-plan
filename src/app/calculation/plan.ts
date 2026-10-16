@@ -1,7 +1,12 @@
+import {City} from './city';
+import {ContextRange, ContextType} from './context';
 import {
-  City, ContextRange, ContextType, GroupModifier, PER_DAY, PER_LEADER, PER_NIGHT, PER_PARTICIPANT, PER_PERSON,
-  PerCityModifier, PerGroupModifier, PerParticipantGroup, Position, PositionModifier, Range
-} from './position';
+  FIXED_MODIFIERS, FixedKind, FixedModifier, GROUP_MODIFIERS, GroupKind, GroupModifier, isFixedKind, isGroupKind,
+  PER_DAY, PER_LEADER, PER_NIGHT, PER_PARTICIPANT, PER_PERSON, PerCityModifier, PerParticipantGroupModifier,
+  PositionModifier
+} from './modifiers';
+import {Position} from './position';
+import {Range} from './range';
 
 export interface Plan {
   /** Projektname, z. B. „Sommerlager 2027“; leer, wenn keiner vergeben ist. */
@@ -12,8 +17,8 @@ export interface Plan {
 }
 
 type ModifierData =
-  | { type: 'person' | 'participant' | 'leader' | 'day' | 'night' }
-  | { type: 'personGroup' | 'participantGroup', groupSize: number }
+  | { type: FixedKind }
+  | { type: GroupKind, groupSize: number }
   | { type: 'city', city: number };
 
 interface PositionData {
@@ -66,6 +71,14 @@ export class PlanFileError extends Error {
 const RANGE_LABELS: Record<RangeField, string> = {participants: 'Teilnehmer', days: 'Tage', leaders: 'Leiter'};
 const SIDE_LABELS: Record<'debit' | 'credit', string> = {debit: 'Ausgaben', credit: 'Einnahmen'};
 
+/** Leiter und Tage, mit denen ein neuer Plan beginnt. */
+function defaultContextRange(cities: City[]): ContextRange {
+  return new ContextRange(new Map<ContextType, Range>([
+    [ContextType.LEADERS, {start: 2, end: 8}],
+    [ContextType.DAYS, {start: 2, end: 3}],
+  ]), cities);
+}
+
 export function defaultPlan(): Plan {
   const dinslaken = new City('Dinslaken', {start: 20, end: 60});
   const voerde = new City('Voerde', {start: 0, end: 2});
@@ -73,10 +86,7 @@ export function defaultPlan(): Plan {
   const others = City.others({start: 0, end: 2});
   return {
     name: 'Beispiel-Zeltlager',
-    contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 2, end: 8}],
-      [ContextType.DAYS, {start: 2, end: 3}],
-    ]), [dinslaken, voerde, huenxeWesel, others]),
+    contextRange: defaultContextRange([dinslaken, voerde, huenxeWesel, others]),
     debit: [
       new Position('Verpflegung', 7, [PER_PERSON, PER_DAY]),
       new Position('Endreinigung Halle', 654.5),
@@ -85,13 +95,13 @@ export function defaultPlan(): Plan {
       new Position('Bus', 1485),
       new Position('Programm', 200),
       new Position('2x Begleitfahrzeug', 168),
-      new Position('Zugtickets', 400, [new PerParticipantGroup(10)]),
+      new Position('Zugtickets', 400, [new PerParticipantGroupModifier(10)]),
     ],
     credit: [
       new Position('Teilnehmerbeitrag', 60, [PER_PARTICIPANT]),
       new Position('Leiterbeitrag', 0, [PER_LEADER]),
       new Position('Förderung DV Münster', 3.5, [PER_PERSON, PER_DAY]),
-      new Position('Förderung Leiter Dinslaken', 7, [new PerParticipantGroup(8), PER_DAY]),
+      new Position('Förderung Leiter Dinslaken', 7, [new PerParticipantGroupModifier(8), PER_DAY]),
       new Position('Förderung Teilnehmer Dinslaken', 4, [new PerCityModifier(dinslaken), PER_NIGHT]),
       new Position('Förderung Teilnehmer Voerde', 2.9, [new PerCityModifier(voerde), PER_NIGHT]),
       new Position('Förderung Teilnehmer Hünxe/Wesel', 3.5, [new PerCityModifier(huenxeWesel), PER_NIGHT]),
@@ -105,10 +115,7 @@ export function defaultPlan(): Plan {
 export function emptyPlan(): Plan {
   return {
     name: '',
-    contextRange: new ContextRange(new Map<ContextType, Range>([
-      [ContextType.LEADERS, {start: 2, end: 8}],
-      [ContextType.DAYS, {start: 2, end: 3}],
-    ]), []),
+    contextRange: defaultContextRange([]),
     debit: [],
     credit: [],
   };
@@ -195,71 +202,40 @@ function positionToData(position: Position, cities: City[]): PositionData {
 }
 
 function modifierToData(modifier: PositionModifier, cities: City[]): ModifierData {
-  if (modifier === PER_PERSON) {
-    return {type: 'person'};
+  if (modifier instanceof FixedModifier) {
+    return {type: modifier.kind};
   }
-  if (modifier === PER_PARTICIPANT) {
-    return {type: 'participant'};
-  }
-  if (modifier === PER_LEADER) {
-    return {type: 'leader'};
-  }
-  if (modifier === PER_DAY) {
-    return {type: 'day'};
-  }
-  if (modifier === PER_NIGHT) {
-    return {type: 'night'};
-  }
-  if (modifier instanceof PerGroupModifier) {
-    return {type: 'personGroup', groupSize: modifier.getGroupSize()};
-  }
-  if (modifier instanceof PerParticipantGroup) {
-    return {type: 'participantGroup', groupSize: modifier.getGroupSize()};
+  if (modifier instanceof GroupModifier) {
+    return {type: modifier.kind, groupSize: modifier.getGroupSize()};
   }
   if (modifier instanceof PerCityModifier) {
     return {type: 'city', city: cities.indexOf(modifier.getCity())};
   }
-  throw new Error('Unbekannter Faktor: ' + modifier.getDescription());
+  throw new Error('Unbekannter Faktor: ' + modifier.kind);
 }
 
 function modifierFromData(data: unknown, cities: City[]): PositionModifier {
   if (!isObject(data)) {
     throw new PlanFileError('invalidModifier', 'Ungültiger Faktor in der Datei.');
   }
-  switch (data['type']) {
-    case 'person':
-      return PER_PERSON;
-    case 'participant':
-      return PER_PARTICIPANT;
-    case 'leader':
-      return PER_LEADER;
-    case 'day':
-      return PER_DAY;
-    case 'night':
-      return PER_NIGHT;
-    case 'personGroup':
-      return withGroupSize(new PerGroupModifier(0), data['groupSize']);
-    case 'participantGroup':
-      return withGroupSize(new PerParticipantGroup(0), data['groupSize']);
-    case 'city': {
-      const city: City | undefined = isNumber(data['city']) ? cities[data['city']] : undefined;
-      if (!city) {
-        throw new PlanFileError('unknownCity', 'Ein Faktor verweist auf eine unbekannte Stadt.');
-      }
-      return new PerCityModifier(city);
+  const type: unknown = data['type'];
+  if (isFixedKind(type)) {
+    return FIXED_MODIFIERS[type];
+  }
+  if (isGroupKind(type)) {
+    if (!isNumber(data['groupSize'])) {
+      throw new PlanFileError('invalidGroupSize', 'Ungültige Gruppengröße in der Datei.');
     }
-    default:
-      throw new PlanFileError('unknownModifier', `Unbekannter Faktor „${String(data['type'])}“ in der Datei.`,
-        String(data['type']));
+    return new GROUP_MODIFIERS[type](data['groupSize']);
   }
-}
-
-function withGroupSize(modifier: GroupModifier, groupSize: unknown): GroupModifier {
-  if (!isNumber(groupSize)) {
-    throw new PlanFileError('invalidGroupSize', 'Ungültige Gruppengröße in der Datei.');
+  if (type === 'city') {
+    const city: City | undefined = isNumber(data['city']) ? cities[data['city']] : undefined;
+    if (!city) {
+      throw new PlanFileError('unknownCity', 'Ein Faktor verweist auf eine unbekannte Stadt.');
+    }
+    return new PerCityModifier(city);
   }
-  modifier.setGroupSize(groupSize);
-  return modifier;
+  throw new PlanFileError('unknownModifier', `Unbekannter Faktor „${String(type)}“ in der Datei.`, String(type));
 }
 
 function positionsFromData(data: unknown, side: 'debit' | 'credit', cities: City[]): Position[] {
@@ -277,15 +253,18 @@ function positionsFromData(data: unknown, side: 'debit' | 'credit', cities: City
 }
 
 function rangeFromData(data: unknown, field: RangeField): Range {
-  if (!isRange(data)) {
-    throw new PlanFileError('invalidRange', `Ungültiger Bereich für ${RANGE_LABELS[field]}.`, field);
-  }
-  return {start: data.start, end: data.end};
+  return checkedRange(data, () =>
+    new PlanFileError('invalidRange', `Ungültiger Bereich für ${RANGE_LABELS[field]}.`, field));
 }
 
 function cityRangeFromData(data: unknown, city: string): Range {
+  return checkedRange(data, () => new PlanFileError('invalidCityRange', `Ungültiger Bereich für ${city}.`, city));
+}
+
+/** Eine Kopie des Bereichs; ist er ungültig, wird der Fehler aus `error` geworfen. */
+function checkedRange(data: unknown, error: () => PlanFileError): Range {
   if (!isRange(data)) {
-    throw new PlanFileError('invalidCityRange', `Ungültiger Bereich für ${city}.`, city);
+    throw error();
   }
   return {start: data.start, end: data.end};
 }

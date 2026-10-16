@@ -1,5 +1,9 @@
-import {City, Context, ContextType, PER_NIGHT, PerCityModifier, Position} from './position';
+import {City} from './city';
+import {ContextType, FixedContext} from './context';
+import {PER_NIGHT, PerCityModifier, PerParticipantGroupModifier, PerPersonGroupModifier} from './modifiers';
+import {Position} from './position';
 import {defaultPlan, emptyPlan, planFromJson, planToJson} from './plan';
+import {enumerateScenarios} from './scenarios';
 
 describe('plan serialization', () => {
   it('restores an identical plan after a round trip', () => {
@@ -8,7 +12,7 @@ describe('plan serialization', () => {
 
     expect(planToJson(restored)).toEqual(planToJson(plan));
 
-    const context = new Context(23, 4, 3);
+    const context = new FixedContext(23, 4, 3);
     expect(restored.credit.map(p => p.getSum(context))).toEqual(plan.credit.map(p => p.getSum(context)));
     expect(restored.debit.map(p => p.getSum(context))).toEqual(plan.debit.map(p => p.getSum(context)));
   });
@@ -44,7 +48,7 @@ describe('plan serialization', () => {
 
     expect(restored.contextRange.getCities().map(city => city.getName())).toEqual(['Sonstige']);
     expect(restored.debit).toEqual([]);
-    expect(restored.contextRange.getPermutations()).toEqual([]);
+    expect(enumerateScenarios(restored.contextRange).participants.length).toBe(0);
   });
 
   it('always keeps exactly one „Sonstige“ as the last city', () => {
@@ -79,6 +83,18 @@ describe('plan serialization', () => {
     expect(restored.debit[restored.debit.length - 1].getModifiers()).toEqual([PER_NIGHT]);
   });
 
+  it('keeps both kinds of group modifiers with their size', () => {
+    const plan = defaultPlan();
+    plan.debit.push(new Position('Gruppen', 10, [new PerPersonGroupModifier(6), new PerParticipantGroupModifier(4)]));
+    const restored = planFromJson(planToJson(plan));
+    const [persons, participants] = restored.debit[restored.debit.length - 1].getModifiers();
+
+    expect(persons).toBeInstanceOf(PerPersonGroupModifier);
+    expect((persons as PerPersonGroupModifier).getGroupSize()).toBe(6);
+    expect(participants).toBeInstanceOf(PerParticipantGroupModifier);
+    expect((participants as PerParticipantGroupModifier).getGroupSize()).toBe(4);
+  });
+
   it('rejects files that are not a plan', () => {
     expect(() => planFromJson('kein json')).toThrow('kein gültiges JSON');
     expect(() => planFromJson('{"version": 3}')).toThrow('unbekannte Version');
@@ -87,5 +103,13 @@ describe('plan serialization', () => {
       days: {start: 1, end: 2}, participants: {start: 1, end: 2}, leaders: {start: 0, end: 1},
       debit: [{title: 'x', amount: 1, modifiers: [{type: 'unbekannt'}]}], credit: [],
     }))).toThrow('Unbekannter Faktor');
+    expect(() => planFromJson(JSON.stringify({
+      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], credit: [],
+      debit: [{title: 'x', amount: 1, modifiers: [{type: 'toString'}]}],
+    }))).toThrow('Unbekannter Faktor');
+    expect(() => planFromJson(JSON.stringify({
+      version: 2, days: {start: 1, end: 1}, leaders: {start: 0, end: 0}, cities: [], credit: [],
+      debit: [{title: 'x', amount: 1, modifiers: [{type: 'personGroup'}]}],
+    }))).toThrow('Ungültige Gruppengröße');
   });
 });

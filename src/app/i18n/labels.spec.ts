@@ -1,5 +1,6 @@
 import { planFromJson } from '../calculation/plan';
-import { City, PER_NIGHT, PerCityModifier, PerParticipantGroup } from '../calculation/position';
+import {City} from '../calculation/city';
+import {PER_NIGHT, PerCityModifier, PerParticipantGroupModifier} from '../calculation/modifiers';
 import { DE } from './de';
 import { EN } from './en';
 import { cityName, describeModifier, fileErrorMessage } from './labels';
@@ -8,9 +9,9 @@ describe('labels', () => {
   it('describes modifiers in the chosen language', () => {
     const others = City.others();
     expect(describeModifier(PER_NIGHT, EN)).toBe('per night');
-    expect(describeModifier(new PerParticipantGroup(8), EN)).toBe('per 8 participants');
+    expect(describeModifier(new PerParticipantGroupModifier(8), EN)).toBe('per 8 participants');
     expect(describeModifier(new PerCityModifier(others), EN)).toBe('per participant from Other');
-    expect(describeModifier(new PerParticipantGroup(8), DE)).toBe('pro 8 Teilnehmer');
+    expect(describeModifier(new PerParticipantGroupModifier(8), DE)).toBe('pro 8 Teilnehmer');
   });
 
   it('translates only the name of the catch-all city', () => {

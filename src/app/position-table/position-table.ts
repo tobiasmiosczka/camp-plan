@@ -10,15 +10,17 @@ import {MatMenuModule} from '@angular/material/menu';
 import {MatSnackBar} from '@angular/material/snack-bar';
 import {MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
+import {City} from '../calculation/city';
 import {
-  City, GroupModifier, MODIFIER_OPTIONS, ModifierOption, PerCityModifier, Position, PositionModifier
-} from '../calculation/position';
+  createModifier, GroupModifier, MODIFIER_KINDS, ModifierKind, PerCityModifier, PositionModifier
+} from '../calculation/modifiers';
+import {Position} from '../calculation/position';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {EuroInputDirective} from '../euro-input';
 import {cityName, describeModifier} from '../i18n/labels';
 import {LanguageStore} from '../language-store';
 import {PlanStore, Side} from '../plan-store';
-import {ValueRange} from '../value-range';
+import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
 
 @Component({
   selector: 'app-position-table',
@@ -72,7 +74,7 @@ export class PositionTableComponent {
     return [...this.positions()];
   });
 
-  protected readonly modifierOptions: ModifierOption[] = MODIFIER_OPTIONS;
+  protected readonly modifierKinds: readonly ModifierKind[] = MODIFIER_KINDS;
 
   protected displayedColumns: string[] = [
     'position-name',
@@ -114,8 +116,8 @@ export class PositionTableComponent {
     this.store.setGroupSize(modifier, groupSize);
   }
 
-  protected addModifier(position: Position, option: ModifierOption): void {
-    this.store.addModifier(position, option.create(this.cities()));
+  protected addModifier(position: Position, kind: ModifierKind): void {
+    this.store.addModifier(position, createModifier(kind, this.cities()));
   }
 
   protected removeModifier(position: Position, modifier: PositionModifier): void {
@@ -138,6 +140,6 @@ export class PositionTableComponent {
   }
 
   protected getSum(position: Position): ValueRange {
-    return this.sums().get(position) ?? {min: 0, max: 0};
+    return this.sums().get(position) ?? EMPTY_VALUE_RANGE;
   }
 }

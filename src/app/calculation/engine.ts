@@ -1,21 +1,16 @@
-import {ValueRange} from '../value-range';
 import {Calculation, calculate} from './calculator';
 import {Plan, PlanData, planFromData} from './plan';
-import {City, Context, PerCityModifier, Position, PositionModifier} from './position';
+import {City} from './city';
+import {PerCityModifier, PositionModifier} from './modifiers';
+import {Position} from './position';
 import {phase, Progress} from './progress';
-import {ScenarioColumns, toColumns} from './scenarios';
+import {enumerateScenarios, ScenarioColumns} from './scenarios';
+
+/** Anteil des Aufzählens an der ganzen Rechnung, gemessen; der Rest ist das Rechnen. */
+const PHASE_SPLIT: number = 0.1;
 
 /** Alles, was die Oberfläche aus einer Rechnung braucht – nur Zahlen, damit es sich an den Worker übergeben lässt. */
-export interface EngineResult {
-  /** Überschuss je Szenario. */
-  values: Float64Array;
-  debitValues: Float64Array;
-  creditValues: Float64Array;
-  /** Spanne je Position, erst Ausgaben, dann Einnahmen, in der Reihenfolge des Plans. */
-  positionSums: ValueRange[];
-  debitTotal: ValueRange;
-  creditTotal: ValueRange;
-  balance: ValueRange;
+export interface EngineResult extends Calculation {
   scenarios: ScenarioColumns;
 }
 
@@ -45,21 +40,11 @@ export function referencedCities(positions: Position[]): City[] {
  */
 export function evaluate(data: PlanData, perParticipant: boolean, onProgress?: Progress): EngineResult {
   const plan: Plan = planFromData(data);
-  const positions: Position[] = [...plan.debit, ...plan.credit];
-  const relevant: City[] = referencedCities(positions);
-  const contexts: Context[] = plan.contextRange.getPermutations(relevant, phase(onProgress, 0, 0.35));
-  const calculation: Calculation = calculate(contexts, plan.contextRange, plan.debit, plan.credit, perParticipant,
-    phase(onProgress, 0.35, 0.9));
-  return {
-    values: calculation.values,
-    debitValues: calculation.debitValues,
-    creditValues: calculation.creditValues,
-    positionSums: positions.map((position: Position): ValueRange => calculation.positionSums.get(position)!),
-    debitTotal: calculation.debitTotal,
-    creditTotal: calculation.creditTotal,
-    balance: calculation.balance,
-    scenarios: toColumns(contexts, plan.contextRange.getCities(), relevant, phase(onProgress, 0.9, 1)),
-  };
+  const relevant: City[] = referencedCities([...plan.debit, ...plan.credit]);
+  const scenarios: ScenarioColumns = enumerateScenarios(plan.contextRange, relevant, phase(onProgress, 0, PHASE_SPLIT));
+  const calculation: Calculation = calculate(scenarios, plan.contextRange, plan.debit, plan.credit, perParticipant,
+    phase(onProgress, PHASE_SPLIT, 1));
+  return {...calculation, scenarios};
 }
 
 /** Die großen Spalten werden übertragen statt kopiert; danach sind sie im Worker leer. */

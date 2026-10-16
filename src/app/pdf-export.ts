@@ -1,8 +1,13 @@
 import {inject, Injectable, Injector, signal, Signal} from '@angular/core';
 import {Plan} from './calculation/plan';
-import {City, ContextRange, ContextType, Position, PositionModifier} from './calculation/position';
+import {City} from './calculation/city';
+import {ContextRange, ContextType} from './calculation/context';
+import {PositionModifier} from './calculation/modifiers';
+import {Position} from './calculation/position';
 import {PlanCalculation, PlanResult} from './plan-calculation';
-import {fileName, PlanStore} from './plan-store';
+import {fileName} from './download';
+import {PlanStore} from './plan-store';
+import {EMPTY_VALUE_RANGE} from './value-range';
 import {whenSignal} from './when-signal';
 import {cityName, describeModifier} from './i18n/labels';
 import {Messages} from './i18n/de';
@@ -42,7 +47,7 @@ export class PdfExport {
       title: p.getTitle(),
       amount: p.getAmount(),
       factors: p.getModifiers().map((modifier: PositionModifier): string => describeModifier(modifier, t)).join(' × '),
-      sum: result.positionSums.get(p) ?? {min: 0, max: 0},
+      sum: result.positionSums.get(p) ?? EMPTY_VALUE_RANGE,
     });
     const scenarioCount: number = result.results.scenarioCount;
     const [chart, distribution] = await this.chartImages();

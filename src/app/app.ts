@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { AccountPanel } from './account-panel/account-panel';
 import { TopAppBar } from './top-app-bar/top-app-bar';
@@ -11,8 +11,6 @@ import { PlanStore } from './plan-store';
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly title = signal('camp-plan');
-
   constructor() {
     // Projektname im Browser-Tab, damit sich mehrere offene Pläne unterscheiden lassen
     const store: PlanStore = inject(PlanStore);

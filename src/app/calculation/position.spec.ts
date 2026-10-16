@@ -1,7 +1,12 @@
-import {City, Context, ContextRange, ContextType, PER_NIGHT, PER_PARTICIPANT, PerCityModifier, Position, Range} from './position';
+import {City} from './city';
+import {Context, FixedContext} from './context';
+import {
+  PER_DAY, PER_NIGHT, PER_PERSON, PerCityModifier, PerParticipantGroupModifier, PerPersonGroupModifier
+} from './modifiers';
+import {Position} from './position';
 
 describe('PER_NIGHT', () => {
-  const withDays = (days: number): Context => new Context(0, 0, days);
+  const withDays = (days: number): Context => new FixedContext(0, 0, days);
 
   it('counts one night less than days', () => {
     const position = new Position('Übernachtung', 10, [PER_NIGHT]);
@@ -11,41 +16,16 @@ describe('PER_NIGHT', () => {
   });
 });
 
-describe('ContextRange with cities', () => {
-  const a = new City('A', {start: 0, end: 2});
-  const b = new City('B', {start: 1, end: 2});
-  const contextRange = new ContextRange(new Map<ContextType, Range>([
-    [ContextType.LEADERS, {start: 1, end: 1}],
-    [ContextType.DAYS, {start: 1, end: 1}],
-  ]), [a, b]);
+describe('Position modifiers', () => {
+  it('are ordered by kind, then by group size or city name', () => {
+    const groupOf10 = new PerParticipantGroupModifier(10);
+    const groupOf8 = new PerParticipantGroupModifier(8);
+    const personGroup = new PerPersonGroupModifier(5);
+    const cityB = new PerCityModifier(new City('B', {start: 0, end: 1}));
+    const cityA = new PerCityModifier(new City('A', {start: 0, end: 1}));
+    const position = new Position('x', 1, [cityB, groupOf10, PER_DAY, cityA, groupOf8, personGroup]);
+    position.addModifier(PER_PERSON);
 
-  it('combines every participant count of every city', () => {
-    const permutations = contextRange.getPermutations();
-
-    expect(permutations.length).toBe(6);
-    expect(permutations.map(c => [c.getParticipantsFrom(a), c.getParticipantsFrom(b)]))
-      .toEqual([[0, 1], [0, 2], [1, 1], [1, 2], [2, 1], [2, 2]]);
-    expect(permutations.map(c => c.get(ContextType.PARTICIPANTS))).toEqual([1, 2, 2, 3, 3, 4]);
-    expect(contextRange.get(ContextType.PARTICIPANTS)).toEqual({start: 1, end: 4});
-  });
-
-  it('counts only participants of the chosen city', () => {
-    const context = contextRange.getPermutations()[5];
-
-    expect(new Position('A', 10, [new PerCityModifier(a)]).getSum(context)).toBe(20);
-    expect(new Position('Alle', 10, [PER_PARTICIPANT]).getSum(context)).toBe(40);
-  });
-
-  it('merges cities that are not relevant into their total', () => {
-    const permutations = contextRange.getPermutations([b]);
-
-    expect(permutations.map(c => [c.getParticipantsFrom(b), c.get(ContextType.PARTICIPANTS)]))
-      .toEqual([[1, 1], [1, 2], [1, 3], [2, 2], [2, 3], [2, 4]]);
-  });
-
-  it('skips scenarios without participants', () => {
-    const empty = new ContextRange(new Map<ContextType, Range>(), [new City('A', {start: 0, end: 0})]);
-
-    expect(empty.getPermutations()).toEqual([]);
+    expect(position.getModifiers()).toEqual([PER_PERSON, PER_DAY, personGroup, groupOf8, groupOf10, cityA, cityB]);
   });
 });

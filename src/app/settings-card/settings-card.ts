@@ -4,7 +4,8 @@ import {MatCardModule} from '@angular/material/card';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
-import {ContextRange, ContextType, Range} from '../calculation/position';
+import {ContextRange, ContextType} from '../calculation/context';
+import {Range} from '../calculation/range';
 import {LanguageStore} from '../language-store';
 import {PlanStore, RANGE_MIN} from '../plan-store';
 

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PositionTableComponent } from './position-table';
-import { City, Position } from '../calculation/position';
+import {City} from '../calculation/city';
+import {Position} from '../calculation/position';
 
 describe('PositionTable', () => {
   let component: PositionTableComponent;

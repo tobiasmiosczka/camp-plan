@@ -4,7 +4,8 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
 import {PlotlyModule} from 'angular-plotly.js';
 import {Data} from 'plotly.js-dist-min';
-import {City, ContextType} from '../../calculation/position';
+import {City} from '../../calculation/city';
+import {ContextType} from '../../calculation/context';
 import {Dimension, groupKey, sameDimension, ScenarioResults} from '../../calculation/scenarios';
 import {PdfExport} from '../../pdf-export';
 import {cityName} from '../../i18n/labels';
@@ -81,11 +82,11 @@ export class ScenarioChart implements ChartSource {
         return {x: previous.value.x, y: known(previous.value.y) ? previous.value.y : null};
       }
       // Standard: Teilnehmer und Leiter, sofern sie variieren, sonst die Tage
-      const varying: Dimension[] = options
-        .slice(0, 2)
-        .filter((option: DimensionOption): boolean => option.varies)
-        .map((option: DimensionOption): Dimension => option.dimension);
-      return {x: varying[0] ?? options[2].dimension, y: varying[1] ?? null};
+      const varying: Dimension[] = [ContextType.PARTICIPANTS, ContextType.LEADERS]
+        .map((type: ContextType): Dimension => ({kind: 'type', type}))
+        .filter((dimension: Dimension): boolean => options.some((option: DimensionOption): boolean =>
+          option.varies && sameDimension(option.dimension, dimension)));
+      return {x: varying[0] ?? {kind: 'type', type: ContextType.DAYS}, y: varying[1] ?? null};
     },
   });
 

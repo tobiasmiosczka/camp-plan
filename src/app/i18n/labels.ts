@@ -1,5 +1,6 @@
 import {PlanFileError, RangeField} from '../calculation/plan';
-import {City, GroupModifier, PerCityModifier, PositionModifier} from '../calculation/position';
+import {City} from '../calculation/city';
+import {FixedModifier, GroupModifier, PerCityModifier, PositionModifier} from '../calculation/modifiers';
 import {Messages} from './de';
 
 /**
@@ -19,8 +20,7 @@ export function describeModifier(modifier: PositionModifier, t: Messages): strin
   if (modifier instanceof GroupModifier) {
     return t.modifiers[modifier.kind](modifier.getGroupSize());
   }
-  const kind = modifier.kind as Exclude<PositionModifier['kind'], 'city' | 'personGroup' | 'participantGroup'>;
-  return t.modifiers[kind];
+  return t.modifiers[(modifier as FixedModifier).kind];
 }
 
 /** Die Meldung zu einem Fehler beim Öffnen einer Datei; unbekannte Fehler behalten ihren eigenen Text. */
