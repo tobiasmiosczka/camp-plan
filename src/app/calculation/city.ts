@@ -1,9 +1,9 @@
-import {newId} from './id';
+import {CityId, newId} from './id';
 import {Range} from './range';
 
 /** Eine Stadt, aus der Teilnehmende kommen, mit geschätzter Teilnehmerzahl. */
 export interface City {
-  readonly id: string;
+  readonly id: CityId;
   readonly name: string;
   readonly participants: Range;
   /** Sammelposten für alle Teilnehmenden ohne eigene Stadt; gibt es in jedem Plan genau einmal, als letzte Stadt. */

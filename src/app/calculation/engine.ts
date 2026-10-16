@@ -1,5 +1,6 @@
 import {Calculation, calculate} from './calculator';
 import {City} from './city';
+import {CityId} from './id';
 import {Modifier} from './modifiers';
 import {Plan, positionsOf} from './plan';
 import {Position} from './position';
@@ -27,10 +28,10 @@ export type EngineResponse =
   | { id: number, error: string };
 
 /** IDs der Städte, auf die ein Faktor „pro Teilnehmer aus …“ verweist. */
-export function referencedCities(plan: Plan): string[] {
-  const ids: Set<string> = new Set<string>(positionsOf(plan).flatMap((position: Position): string[] =>
-    position.modifiers.flatMap((modifier: Modifier): string[] => modifier.kind === 'city' ? [modifier.city] : [])));
-  return plan.cities.map(({id}: City): string => id).filter((id: string): boolean => ids.has(id));
+export function referencedCities(plan: Plan): CityId[] {
+  const ids: Set<CityId> = new Set<CityId>(positionsOf(plan).flatMap((position: Position): CityId[] =>
+    position.modifiers.flatMap((modifier: Modifier): CityId[] => modifier.kind === 'city' ? [modifier.city] : [])));
+  return plan.cities.map(({id}: City): CityId => id).filter((id: CityId): boolean => ids.has(id));
 }
 
 /**

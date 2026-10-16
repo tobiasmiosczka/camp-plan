@@ -1,5 +1,5 @@
 import {ContextType} from '../calculation/context';
-import {PlanFileError} from '../calculation/plan';
+import {PlanFileError, PlanFileProblem, Side} from '../calculation/plan';
 import {City} from '../calculation/city';
 import {Modifier} from '../calculation/modifiers';
 import {Messages} from './de';
@@ -37,19 +37,20 @@ export function fileErrorMessage(error: unknown, t: Messages): string {
   const fields: Record<ContextType, string> = {
     participants: t.common.participantsTotal, days: t.common.days, leaders: t.common.leaders,
   };
-  const side: string = error.subject === 'credit' ? t.common.credit : t.common.debit;
-  switch (error.code) {
+  const sides: Record<Side, string> = {debit: t.common.debit, credit: t.common.credit};
+  const problem: PlanFileProblem = error.problem;
+  switch (problem.code) {
     case 'invalidRange':
-      return t.planFile.invalidRange(fields[error.subject as ContextType] ?? error.subject);
+      return t.planFile.invalidRange(fields[problem.subject]);
     case 'invalidCityRange':
-      return t.planFile.invalidRange(error.subject);
+      return t.planFile.invalidRange(problem.subject);
     case 'unknownModifier':
-      return t.planFile.unknownModifier(error.subject);
+      return t.planFile.unknownModifier(problem.subject);
     case 'missingPositions':
-      return t.planFile.missingPositions(side);
+      return t.planFile.missingPositions(sides[problem.subject]);
     case 'invalidPosition':
-      return t.planFile.invalidPosition(side);
+      return t.planFile.invalidPosition(sides[problem.subject]);
     default:
-      return t.planFile[error.code];
+      return t.planFile[problem.code];
   }
 }

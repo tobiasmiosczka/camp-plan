@@ -10,9 +10,8 @@ import {MatMenuModule} from '@angular/material/menu';
 import {MatTableModule} from '@angular/material/table';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {City} from '../calculation/city';
-import {
-  CityModifier, createModifier, GroupModifier, isGroupKind, Modifier, MODIFIER_KINDS, ModifierKind
-} from '../calculation/modifiers';
+import {CityId, PositionId} from '../calculation/id';
+import {createModifier, Modifier, MODIFIER_KINDS, ModifierKind} from '../calculation/modifiers';
 import {Position} from '../calculation/position';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {EuroInputDirective} from '../euro-input';
@@ -20,6 +19,7 @@ import {cityName, describeModifier} from '../i18n/labels';
 import {LanguageStore} from '../language-store';
 import {Side} from '../calculation/plan';
 import {PlanStore, Removed} from '../plan-store';
+import {TypedCellDef} from '../typed-cell-def';
 import {Undo} from '../undo';
 import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
 
@@ -38,6 +38,7 @@ import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
     TextFieldModule,
     CurrencyRangePipe,
     EuroInputDirective,
+    TypedCellDef,
   ],
   templateUrl: './position-table.html',
   styleUrl: './position-table.css',
@@ -50,7 +51,7 @@ export class PositionTableComponent {
   readonly positions = input.required<readonly Position[]>();
 
   /** Spanne je Positions-ID über alle Szenarien, vom Konto vorberechnet. */
-  readonly sums = input.required<Map<string, ValueRange>>();
+  readonly sums = input.required<Map<PositionId, ValueRange>>();
 
   readonly cities = input.required<readonly City[]>();
 
@@ -67,7 +68,7 @@ export class PositionTableComponent {
     this.perParticipant() ? this.t().common.perParticipant : this.t().positions.sum);
 
   /** Zeilen über die ID wiederfinden: Eine geänderte Position bleibt dieselbe Zeile, Eingabefelder behalten den Fokus. */
-  protected readonly trackById = (_: number, position: Position): string => position.id;
+  protected readonly trackById = (_: number, position: Position): PositionId => position.id;
 
   protected readonly modifierKinds: readonly ModifierKind[] = MODIFIER_KINDS;
 
@@ -83,19 +84,11 @@ export class PositionTableComponent {
     return describeModifier(modifier, this.cities(), this.t());
   }
 
-  protected isGroup(modifier: Modifier): modifier is GroupModifier {
-    return isGroupKind(modifier.kind);
-  }
-
-  protected isCity(modifier: Modifier): modifier is CityModifier {
-    return modifier.kind === 'city';
-  }
-
   protected cityName(city: City): string {
     return cityName(city, this.t());
   }
 
-  protected setCity(position: Position, index: number, city: string): void {
+  protected setCity(position: Position, index: number, city: CityId): void {
     this.store.setCity(position.id, index, city);
   }
 

@@ -27,7 +27,7 @@ function report(overrides: Partial<Report> = {}): Report {
 
 /** Der Inhalt einer Seite als PDF-Befehle; Texte stehen darin in Klammern. */
 function page(doc: jsPDF, number: number): string {
-  return (doc.internal as unknown as { pages: string[][] }).pages[number].join('\n');
+  return (doc.internal as unknown as { pages: string[][] }).pages[number]!.join('\n');
 }
 
 describe('renderPdf', () => {

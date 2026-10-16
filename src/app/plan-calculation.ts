@@ -1,7 +1,7 @@
 import {computed, effect, inject, Injectable, Injector, linkedSignal, resource, signal} from '@angular/core';
 import {calculationKey, EngineResult} from './calculation/engine';
-import {Plan, positionsOf} from './calculation/plan';
-import {Position} from './calculation/position';
+import {PositionId} from './calculation/id';
+import {Plan} from './calculation/plan';
 import {ScenarioResults} from './calculation/scenarios';
 import {CalculationRunner} from './calculation-runner';
 import {PlanStore} from './plan-store';
@@ -15,7 +15,7 @@ export interface PlanResult {
   calculation: EngineResult;
   results: ScenarioResults;
   /** Spanne je Positions-ID. */
-  positionSums: Map<string, ValueRange>;
+  positionSums: Map<PositionId, ValueRange>;
 }
 
 /** Erst ab dieser Rechendauer erscheint der Ladebalken; kürzere Rechnungen kommen mit dem Skelett aus. */
@@ -57,8 +57,6 @@ export class PlanCalculation {
   private readonly resource = resource({
     params: (): Request => this.request(),
     loader: async ({params, abortSignal}): Promise<PlanResult> => {
-      // Die Ergebnisse kommen als Listen in der Reihenfolge des Plans zurück; über ihn finden sie zu den IDs
-      const positions: Position[] = positionsOf(params.plan);
       const busySince: number = this.busySince ??= performance.now();
       const onProgress = (share: number): void => {
         if (!abortSignal.aborted && performance.now() - busySince >= LONG_CALCULATION_MS) {
@@ -79,8 +77,7 @@ export class PlanCalculation {
         key: params.key,
         calculation,
         results: new ScenarioResults(calculation.scenarios, calculation.values, params.plan),
-        positionSums: new Map<string, ValueRange>(positions.map((position: Position, i: number): [string, ValueRange] =>
-          [position.id, calculation.positionSums[i]])),
+        positionSums: calculation.positionSums,
       };
     },
   });

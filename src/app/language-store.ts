@@ -52,15 +52,15 @@ export class LanguageStore {
   }
 }
 
-function isLanguage(value: string | null): value is Language {
-  return value !== null && Object.hasOwn(LANGUAGES, value);
+function isLanguage(value: string | null | undefined): value is Language {
+  return value !== null && value !== undefined && Object.hasOwn(LANGUAGES, value);
 }
 
 /** Die erste bevorzugte Sprache des Browsers, die die App kennt; sonst Englisch. */
 function browserLanguage(): Language {
   const preferred: readonly string[] = typeof navigator === 'undefined' ? [] : navigator.languages ?? [navigator.language];
   for (const tag of preferred) {
-    const base: string = tag.toLowerCase().split('-')[0];
+    const [base] = tag.toLowerCase().split('-');
     if (isLanguage(base)) {
       return base;
     }

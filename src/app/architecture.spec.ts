@@ -35,20 +35,25 @@ function sourceFiles(dir: string = SRC): string[] {
   });
 }
 
+/** Die erste Gruppe jedes Treffers; das Muster muss eine haben. */
+function firstGroups(content: string, pattern: RegExp): string[] {
+  return [...content.matchAll(pattern)].map((match: RegExpExecArray): string => match[1] ?? '');
+}
+
 function parse(path: string): SourceFile {
   const content: string = readFileSync(path, 'utf8');
   const resolveTarget = (specifier: string): string | null =>
     specifier.startsWith('.') ? relative(SRC, resolve(dirname(path), specifier)) + '.ts' : null;
   const imports: Import[] = [];
   // Auch mehrzeilige Importe: alles von „import“/„export“ bis zum nächsten „from '…'“
-  for (const [, specifier] of content.matchAll(/^[ \t]*(?:import|export)\b[^;']*\bfrom[ \t]+'([^']+)'/gm)) {
+  for (const specifier of firstGroups(content, /^[ \t]*(?:import|export)\b[^;']*\bfrom[ \t]+'([^']+)'/gm)) {
     imports.push({specifier, target: resolveTarget(specifier), dynamic: false});
   }
   // Nur für den Seiteneffekt, ohne „from“: import 'plotly.js-dist-min';
-  for (const [, specifier] of content.matchAll(/^[ \t]*import[ \t]+'([^']+)'/gm)) {
+  for (const specifier of firstGroups(content, /^[ \t]*import[ \t]+'([^']+)'/gm)) {
     imports.push({specifier, target: resolveTarget(specifier), dynamic: false});
   }
-  for (const [, specifier] of content.matchAll(/\bimport\(\s*'([^']+)'\s*\)/g)) {
+  for (const specifier of firstGroups(content, /\bimport\(\s*'([^']+)'\s*\)/g)) {
     imports.push({specifier, target: resolveTarget(specifier), dynamic: true});
   }
   return {path: relative(SRC, path), content, imports};
@@ -166,7 +171,7 @@ describe('architecture', () => {
     const violations: string[] = files
       .filter((source: SourceFile): boolean => !source.path.startsWith('app/calculation/') && source.path !== 'app/plan-store.ts')
       .flatMap((source: SourceFile): string[] => [...source.content.matchAll(new RegExp(`\\b(\\w+)\\.(${mutators})\\(`, 'g'))]
-        .filter(([, receiver]: RegExpMatchArray): boolean => !receivers.includes(receiver))
+        .filter(([, receiver]: RegExpMatchArray): boolean => !receivers.includes(receiver ?? ''))
         .map(([call]: RegExpMatchArray): string => show(source, call)));
 
     expect(violations).toEqual([]);
@@ -194,7 +199,7 @@ describe('architecture', () => {
       return starts.map((start: RegExpMatchArray, index: number) => {
         const before: string = source.content.slice(starts[index - 1]?.index ?? 0, start.index);
         return {
-          name: start[1],
+          name: start[1] ?? '',
           body: source.content.slice(start.index, starts[index + 1]?.index),
           decorated: /@(?:Component|Directive|Pipe|Injectable|NgModule)\(/.test(before),
         };

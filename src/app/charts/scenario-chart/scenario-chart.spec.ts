@@ -42,7 +42,7 @@ describe('ScenarioChart', () => {
 
     expect(axes().y).toBeNull();
     // 2 bis 8 Leiter: wenige Werte, also Säulen statt einer Linie
-    expect(graph().data[0].type).toBe('bar');
+    expect(graph().data[0]!.type).toBe('bar');
   });
 
   it('keeps the chosen axes for a new result', () => {

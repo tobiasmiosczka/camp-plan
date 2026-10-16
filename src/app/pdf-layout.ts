@@ -204,8 +204,9 @@ function settingsAndCities(pdf: PdfWriter, report: Report): void {
     x: margin,
     options: {
       head: [[t.pdf.setting, t.common.from, t.common.to]],
-      body: [report.days, report.leaders, report.participants].map((range: Range, i: number): string[] =>
-        [[t.common.days, t.common.leaders, t.common.participantsTotal][i], `${range.start}`, `${range.end}`]),
+      body: ([[t.common.days, report.days], [t.common.leaders, report.leaders],
+        [t.common.participantsTotal, report.participants]] satisfies [string, Range][])
+        .map(([label, range]: [string, Range]): string[] => [label, `${range.start}`, `${range.end}`]),
     },
   }, {
     title: t.cities.title,

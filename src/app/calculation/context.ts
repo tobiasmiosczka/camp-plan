@@ -1,3 +1,5 @@
+import {CityId} from './id';
+
 /** Eine Größe, die in jedem Szenario einen festen Wert hat. */
 export type ContextType = 'participants' | 'leaders' | 'days';
 
@@ -10,5 +12,5 @@ export interface Context {
   readonly leaders: number;
   readonly days: number;
   /** Teilnehmer je Stadt-ID; nur für Städte, die einzeln aufgezählt wurden. */
-  readonly cities?: ReadonlyMap<string, number>;
+  readonly cities?: ReadonlyMap<CityId, number>;
 }

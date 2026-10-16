@@ -30,8 +30,8 @@ describe('plan serialization', () => {
 
     const cities = restored.cities;
     expect(cities.map(city => city.name)).toEqual(['Dinslaken', 'Voerde', 'Hünxe/Wesel', 'Bottrop', 'Sonstige']);
-    expect(cities[3].participants).toEqual({start: 0, end: 5});
-    expect(restored.credit.at(-1)!.modifiers).toEqual([{kind: 'city', city: cities[3].id}]);
+    expect(cities[3]!.participants).toEqual({start: 0, end: 5});
+    expect(restored.credit.at(-1)!.modifiers).toEqual([{kind: 'city', city: cities[3]!.id}]);
   });
 
   it('gives every city and position a new id when loading', () => {
@@ -40,7 +40,7 @@ describe('plan serialization', () => {
     const ids = [...restored.cities, ...restored.debit, ...restored.credit].map(item => item.id);
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(restored.cities[0].id).not.toBe(plan.cities[0].id);
+    expect(restored.cities[0]!.id).not.toBe(plan.cities[0]!.id);
   });
 
   it('reads version 1 files as a single city', () => {
@@ -70,7 +70,7 @@ describe('plan serialization', () => {
     }));
 
     expect(plan.cities.map(city => [city.name, city.others])).toEqual([['Voerde', false], ['Sonstige', true]]);
-    expect(plan.cities[1].participants).toEqual({start: 1, end: 2});
+    expect(plan.cities[1]!.participants).toEqual({start: 1, end: 2});
   });
 
   it('keeps the project name and accepts files without one', () => {

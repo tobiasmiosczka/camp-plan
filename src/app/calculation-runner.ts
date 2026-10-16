@@ -6,7 +6,7 @@ import {LanguageStore} from './language-store';
 
 interface Pending {
   id: number;
-  onProgress?: Progress;
+  onProgress: Progress | undefined;
   resolve: (result: EngineResult) => void;
   reject: (error: Error) => void;
 }

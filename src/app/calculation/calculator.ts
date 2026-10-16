@@ -1,11 +1,12 @@
 import {EMPTY_VALUE_RANGE, ValueRange} from '../value-range';
 import {Context} from './context';
+import {PositionId} from './id';
 import {CityModifier, Modifier} from './modifiers';
-import {Plan, positionsOf, rangeOf} from './plan';
+import {Plan, rangeOf} from './plan';
 import {Position, positionSum} from './position';
 import {Progress, PROGRESS_STEP} from './progress';
 import {Range} from './range';
-import {ScenarioColumns} from './scenarios';
+import {cityColumn, missingCity, ScenarioColumns} from './scenarios';
 
 export interface Calculation {
   /** Überschuss je Szenario, in derselben Reihenfolge wie die Szenarien. */
@@ -13,8 +14,8 @@ export interface Calculation {
   /** Ausgaben und Einnahmen je Szenario, für die Verteilung. */
   debitValues: Float64Array;
   creditValues: Float64Array;
-  /** Spanne je Position, erst Ausgaben, dann Einnahmen, in der Reihenfolge des Plans. */
-  positionSums: ValueRange[];
+  /** Spanne je Position. */
+  positionSums: Map<PositionId, ValueRange>;
   debitTotal: ValueRange;
   creditTotal: ValueRange;
   balance: ValueRange;
@@ -30,50 +31,59 @@ export interface Calculation {
  */
 export function calculate(scenarios: ScenarioColumns, plan: Plan, perParticipant: boolean,
                           onProgress?: Progress): Calculation {
-  const positions: Position[] = positionsOf(plan);
   const grid: Grid = new Grid(plan);
-  const tabled: Float64Array[] = positions.map((position: Position): Float64Array =>
-    grid.tabulate(withoutCities(position), perParticipant));
-  const debit: number[] = indices(0, plan.debit.length);
-  const credit: number[] = indices(plan.debit.length, positions.length);
-  const byCity = (i: number): boolean => cityModifiers(positions[i]).length > 0;
-  const cityColumns: Int32Array[][] = positions.map((position: Position): Int32Array[] =>
-    cityModifiers(position).map((modifier: CityModifier): Int32Array =>
-      scenarios.cities[scenarios.relevant.indexOf(modifier.city)]));
+  const entry = (position: Position): Entry => ({
+    id: position.id,
+    table: grid.tabulate(withoutCities(position), perParticipant),
+    columns: cityModifiers(position).map(({city}: CityModifier): Int32Array => {
+      const column: Int32Array | undefined = cityColumn(scenarios, city);
+      if (column === undefined) {
+        throw missingCity(city);
+      }
+      return column;
+    }),
+    sum: {min: Infinity, max: -Infinity},
+  });
+  const debit: Entry[] = plan.debit.map(entry);
+  const credit: Entry[] = plan.credit.map(entry);
+  const byCity = ({columns}: Entry): boolean => columns.length > 0;
+  const tabled = ({columns}: Entry): boolean => columns.length === 0;
 
-  const count: number = scenarios.participants.length;
-  const sums: ValueRange[] = positions.map((): ValueRange => ({min: Infinity, max: -Infinity}));
   // Positionen ohne Stadt zählen je Seite nur einmal je Kombination
-  const tableSide = (side: number[]): Float64Array => {
+  const tableSide = (side: Entry[]): Float64Array => {
     const total = new Float64Array(grid.size);
-    for (const i of side.filter((i: number): boolean => !byCity(i))) {
-      tabled[i].forEach((value: number, at: number): void => {
-        total[at] += value;
+    for (const {table} of side.filter(tabled)) {
+      table.forEach((value: number, at: number): void => {
+        total[at]! += value;
       });
     }
     return total;
   };
   const debitTable: Float64Array = tableSide(debit);
   const creditTable: Float64Array = tableSide(credit);
-  const individualDebit: number[] = debit.filter(byCity);
-  const individualCredit: number[] = credit.filter(byCity);
+  const individualDebit: Entry[] = debit.filter(byCity);
+  const individualCredit: Entry[] = credit.filter(byCity);
+
+  // Ab hier je Szenario: Die Indizes sind durch die Schleifen und das Raster gesichert, die Zugriffe ungeprüft (`!`)
+  const count: number = scenarios.participants.length;
+  const {participants, leaders, days} = scenarios;
   const totals: Totals = newTotals(count);
-  const sideSum = (side: number[], c: number, at: number): number => {
+  const sideSum = (side: Entry[], c: number, at: number): number => {
     let sum: number = 0;
-    for (const i of side) {
-      let value: number = tabled[i][at];
-      for (const column of cityColumns[i]) {
-        value *= column[c];
+    for (const {table, columns, sum: range} of side) {
+      let value: number = table[at]!;
+      for (const column of columns) {
+        value *= column[c]!;
       }
       sum += value;
-      extend(sums[i], value);
+      extend(range, value);
     }
     return sum;
   };
   for (let c = 0; c < count; c++) {
-    const at: number = grid.index(scenarios.participants[c], scenarios.leaders[c], scenarios.days[c]);
-    const debitSum: number = debitTable[at] + sideSum(individualDebit, c, at);
-    const creditSum: number = creditTable[at] + sideSum(individualCredit, c, at);
+    const at: number = grid.index(participants[c]!, leaders[c]!, days[c]!);
+    const debitSum: number = debitTable[at]! + sideSum(individualDebit, c, at);
+    const creditSum: number = creditTable[at]! + sideSum(individualCredit, c, at);
     extend(totals.debitTotal, debitSum);
     extend(totals.creditTotal, creditSum);
     extend(totals.balance, creditSum - debitSum);
@@ -85,18 +95,17 @@ export function calculate(scenarios: ScenarioColumns, plan: Plan, perParticipant
     }
   }
   // Jede Kombination der Tabelle kommt in einem Szenario vor: Die Spanne steht schon in der Tabelle
-  positions.forEach((_: Position, i: number): void => {
-    if (!byCity(i)) {
-      tabled[i].forEach((value: number): void => extend(sums[i], value));
-    }
-  });
+  for (const {table, sum} of [...debit, ...credit].filter(tabled)) {
+    table.forEach((value: number): void => extend(sum, value));
+  }
 
   const orEmpty = (range: ValueRange): ValueRange => count > 0 ? range : {...EMPTY_VALUE_RANGE};
   return {
     values: totals.values,
     debitValues: totals.debitValues,
     creditValues: totals.creditValues,
-    positionSums: sums.map(orEmpty),
+    positionSums: new Map<PositionId, ValueRange>([...debit, ...credit]
+      .map(({id, sum}: Entry): [PositionId, ValueRange] => [id, orEmpty(sum)])),
     debitTotal: orEmpty(totals.debitTotal),
     creditTotal: orEmpty(totals.creditTotal),
     balance: orEmpty(totals.balance),
@@ -152,8 +161,15 @@ function withoutCities(position: Position): Position {
   return {...position, modifiers: position.modifiers.filter((modifier: Modifier): boolean => modifier.kind !== 'city')};
 }
 
-function indices(from: number, to: number): number[] {
-  return Array.from({length: to - from}, (_: unknown, i: number): number => from + i);
+/** Eine Position, für die Rechnung vorbereitet. */
+interface Entry {
+  id: PositionId;
+  /** Summe ohne Stadt-Faktoren je Kombination des Rasters. */
+  table: Float64Array;
+  /** Teilnehmer je Szenario für jeden Stadt-Faktor; damit wird die Tabelle multipliziert. */
+  columns: Int32Array[];
+  /** Kleinste und größte Summe, die die Position erreicht. */
+  sum: ValueRange;
 }
 
 /** Überschuss, Ausgaben und Einnahmen je Szenario samt ihren Spannen. */

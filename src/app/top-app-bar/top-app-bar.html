@@ -78,8 +78,9 @@
     }
   </mat-menu>
   <!-- Nur bei Rechnungen, die spürbar dauern; liegt auf der Unterkante der Leiste, damit nichts verrutscht -->
-  @if (progress() !== null) {
-    <mat-progress-bar class="calculation-progress" mode="determinate" [value]="progress()! * 100"
+  @let share = progress();
+  @if (share !== null) {
+    <mat-progress-bar class="calculation-progress" mode="determinate" [value]="share * 100"
                       [attr.aria-label]="t().topBar.calculating" />
   }
 </mat-toolbar>

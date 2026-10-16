@@ -1,6 +1,7 @@
 import {Component, computed, inject} from '@angular/core';
 import {MatCardModule} from '@angular/material/card';
 import {MatIconModule} from '@angular/material/icon';
+import {PositionId} from '../calculation/id';
 import {CurrencyRangePipe} from '../currency-range-pipe';
 import {LanguageStore} from '../language-store';
 import {PlanCalculation} from '../plan-calculation';
@@ -33,6 +34,6 @@ export class TAccount {
   protected readonly loading = this.calculation.skeleton;
   protected readonly debitTotal = computed((): ValueRange => this.calculation.result()?.calculation.debitTotal ?? EMPTY_VALUE_RANGE);
   protected readonly creditTotal = computed((): ValueRange => this.calculation.result()?.calculation.creditTotal ?? EMPTY_VALUE_RANGE);
-  protected readonly positionSums = computed((): Map<string, ValueRange> =>
-    this.calculation.result()?.positionSums ?? new Map<string, ValueRange>());
+  protected readonly positionSums = computed((): Map<PositionId, ValueRange> =>
+    this.calculation.result()?.positionSums ?? new Map<PositionId, ValueRange>());
 }

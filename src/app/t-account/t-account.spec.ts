@@ -45,7 +45,7 @@ describe('TAccount', () => {
     before.dispatchEvent(new Event('input'));
     await fixture.whenStable();
 
-    expect(TestBed.inject(PlanStore).plan().debit[0].title).toBe('Turnhalle');
+    expect(TestBed.inject(PlanStore).plan().debit[0]!.title).toBe('Turnhalle');
     expect(field()).toBe(before);
     expect(document.activeElement).toBe(before);
   });

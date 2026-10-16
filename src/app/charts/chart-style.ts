@@ -159,11 +159,11 @@ function forPaper(layout: Partial<Layout>): Partial<Layout> {
     plot_bgcolor: '#ffffff',
     xaxis: {...layout.xaxis, ...axis},
     yaxis: {...layout.yaxis, ...axis},
-    scene: layout.scene && {
+    ...(layout.scene && {scene: {
       ...layout.scene,
       xaxis: {...layout.scene.xaxis, ...axis},
       yaxis: {...layout.scene.yaxis, ...axis},
       zaxis: {...layout.scene.zaxis, ...axis},
-    },
+    }}),
   };
 }

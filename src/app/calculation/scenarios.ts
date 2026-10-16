@@ -1,15 +1,19 @@
 import {ValueRange} from '../value-range';
 import {City} from './city';
 import {ContextType} from './context';
+import {CityId} from './id';
 import {Plan, rangeOf} from './plan';
 import {Range, range} from './range';
 import {Progress, PROGRESS_STEP} from './progress';
 
+/** Die Teilnehmer aus einer Stadt als Größe. */
+export interface CityDimension {
+  kind: 'city';
+  city: CityId;
+}
+
 /** Eine Größe, nach der sich die Szenarien gegenüberstellen lassen. */
-export type Dimension =
-  | { kind: 'type', type: ContextType }
-  /** `city` ist die ID der Stadt. */
-  | { kind: 'city', city: string };
+export type Dimension = { kind: 'type', type: ContextType } | CityDimension;
 
 export function sameDimension(a: Dimension | null, b: Dimension | null): boolean {
   if (a === null || b === null) {
@@ -29,13 +33,27 @@ export function groupKey(parts: number[]): number {
 /** Szenarien als Spalten statt als Objekte: lässt sich ohne Kopie aus dem Web Worker übergeben. */
 export interface ScenarioColumns {
   /** IDs der einzeln aufgezählten Städte, in der Reihenfolge des Plans. */
-  relevant: string[];
+  relevant: CityId[];
   participants: Int32Array;
   leaders: Int32Array;
   days: Int32Array;
   /** Teilnehmer je einzeln aufgezählter Stadt, in der Reihenfolge von `relevant`. */
   cities: Int32Array[];
 }
+
+/** Die Teilnehmer der Stadt je Szenario; nur, wenn sie einzeln aufgezählt wurde. */
+export function cityColumn(scenarios: ScenarioColumns, city: CityId): Int32Array | undefined {
+  const index: number = scenarios.relevant.indexOf(city);
+  return index < 0 ? undefined : scenarios.cities[index];
+}
+
+/** Eine Stadt, die in den Spalten nicht vorkommt: ein Fehler im Programm, nicht in den Eingaben. */
+export function missingCity(city: CityId): Error {
+  return new Error(`Stadt ${city} wurde nicht einzeln aufgezählt.`);
+}
+
+// In den Schleifen über Szenarien und Spalten sichern die Schleifengrenzen die Indizes; Zugriffe sind dort ungeprüft
+// (`!`), weil eine Prüfung je Szenario die Rechnung bremsen würde.
 
 /**
  * Alle Kombinationen aus Teilnehmern je Stadt, Leitern und Tagen, gleich als Spalten; Szenarien ohne Teilnehmer
@@ -45,7 +63,7 @@ export interface ScenarioColumns {
  * werden zu einer Spanne zusammengefasst – das ergibt dieselben Ergebnisse mit weit weniger Szenarien.
  */
 export function enumerateScenarios(plan: Plan,
-                                   relevant: readonly string[] = plan.cities.map(({id}: City): string => id),
+                                   relevant: readonly CityId[] = plan.cities.map(({id}: City): CityId => id),
                                    onProgress?: Progress): ScenarioColumns {
   const cities: readonly City[] = plan.cities;
   const enumerated: City[] = cities.filter((city: City): boolean => relevant.includes(city.id));
@@ -66,7 +84,7 @@ export function enumerateScenarios(plan: Plan,
   const days: number[] = range(plan.days);
   const size: number = (combinations - empty) * leaders.length * days.length;
   const columns: ScenarioColumns = {
-    relevant: enumerated.map(({id}: City): string => id),
+    relevant: enumerated.map(({id}: City): CityId => id),
     participants: new Int32Array(size),
     leaders: new Int32Array(size),
     days: new Int32Array(size),
@@ -91,7 +109,7 @@ export function enumerateScenarios(plan: Plan,
           columns.leaders[i] = l;
           columns.days[i] = d;
           for (let c = 0; c < enumerated.length; c++) {
-            columns.cities[c][i] = counts[c];
+            columns.cities[c]![i] = counts[c]!;
           }
           i++;
         }
@@ -99,10 +117,11 @@ export function enumerateScenarios(plan: Plan,
     }
     // Weiterzählen wie ein Kilometerzähler, hinten am schnellsten
     for (let k = spans.length - 1; k >= 0; k--) {
-      if (++counts[k] <= spans[k].end) {
+      const span: Range = spans[k]!;
+      if (++counts[k]! <= span.end) {
         break;
       }
-      counts[k] = spans[k].start;
+      counts[k] = span.start;
     }
   }
   return columns;
@@ -118,8 +137,8 @@ export function enumerateScenarios(plan: Plan,
 export class ScenarioResults {
 
   /** Teilnehmer je Stadt-ID. */
-  private readonly ranges = new Map<string, Range>();
-  private readonly isRelevant: Set<string>;
+  private readonly ranges = new Map<CityId, Range>();
+  private readonly isRelevant: Set<CityId>;
   private readonly participants: Range;
   private readonly leaders: Range;
   private readonly days: Range;
@@ -135,7 +154,7 @@ export class ScenarioResults {
     for (const city of plan.cities) {
       this.ranges.set(city.id, city.participants);
     }
-    this.isRelevant = new Set<string>(scenarios.relevant);
+    this.isRelevant = new Set<CityId>(scenarios.relevant);
     this.participants = rangeOf(plan, 'participants');
     this.leaders = plan.leaders;
     this.days = plan.days;
@@ -143,7 +162,7 @@ export class ScenarioResults {
     this.rest = scenarios.participants.slice();
     for (const column of scenarios.cities) {
       for (let i = 0; i < column.length; i++) {
-        this.rest[i] -= column[i];
+        this.rest[i]! -= column[i]!;
       }
     }
 
@@ -151,8 +170,9 @@ export class ScenarioResults {
     this.weights = new Float64Array(this.rest.length);
     let scenarioCount: number = 0;
     for (let i = 0; i < this.rest.length; i++) {
-      this.weights[i] = ways[this.rest[i] - restStart] ?? 0;
-      scenarioCount += this.weights[i];
+      const weight: number = ways[this.rest[i]! - restStart] ?? 0;
+      this.weights[i] = weight;
+      scenarioCount += weight;
     }
     this.scenarioCount = scenarioCount;
   }
@@ -164,7 +184,7 @@ export class ScenarioResults {
   private distributions(): [number, number[]] {
     let start: number = 0;
     let ways: number[] = [1];
-    this.ranges.forEach((participants: Range, city: string): void => {
+    this.ranges.forEach((participants: Range, city: CityId): void => {
       if (this.isRelevant.has(city)) {
         return;
       }
@@ -172,7 +192,7 @@ export class ScenarioResults {
       const next: number[] = new Array<number>(ways.length + span).fill(0);
       ways.forEach((count: number, i: number): void => {
         for (let k = 0; k <= span; k++) {
-          next[i + k] += count;
+          next[i + k]! += count;
         }
       });
       start += participants.start;
@@ -193,7 +213,7 @@ export class ScenarioResults {
   public mean(values: ArrayLike<number> = this.values): number {
     let sum: number = 0;
     for (let i = 0; i < values.length; i++) {
-      sum += values[i] * this.weights[i];
+      sum += values[i]! * this.weights[i]!;
     }
     return this.scenarioCount > 0 ? sum / this.scenarioCount : 0;
   }
@@ -202,7 +222,7 @@ export class ScenarioResults {
   public deficitShare(): number {
     let deficit: number = 0;
     for (let i = 0; i < this.values.length; i++) {
-      deficit += this.values[i] < 0 ? this.weights[i] : 0;
+      deficit += this.values[i]! < 0 ? this.weights[i]! : 0;
     }
     return this.scenarioCount > 0 ? deficit / this.scenarioCount : 0;
   }
@@ -229,14 +249,15 @@ export class ScenarioResults {
   /** Minimum und Maximum je Wertekombination der Dimensionen, Schlüssel per {@link groupKey}. */
   public aggregate(dimensions: Dimension[]): Map<number, ValueRange> {
     const groups = new Map<number, ValueRange>();
-    const collapsed = (dimension: Dimension): boolean => dimension.kind === 'city' && !this.isRelevant.has(dimension.city);
-    const selected: string[] = dimensions
+    const collapsed = (dimension: Dimension): dimension is CityDimension =>
+      dimension.kind === 'city' && !this.isRelevant.has(dimension.city);
+    const selected: CityId[] = dimensions
       .filter(collapsed)
-      .map((dimension: Dimension): string => (dimension as { city: string }).city);
+      .map((dimension: CityDimension): CityId => dimension.city);
     // Spielraum der zusammengefassten Städte, die nicht ausgewählt sind
     let othersStart: number = 0;
     let othersEnd: number = 0;
-    this.ranges.forEach((participants: Range, city: string): void => {
+    this.ranges.forEach((participants: Range, city: CityId): void => {
       if (!this.isRelevant.has(city) && !selected.includes(city)) {
         othersStart += participants.start;
         othersEnd += participants.end;
@@ -259,19 +280,19 @@ export class ScenarioResults {
     // Der Schlüssel wächst Stufe um Stufe wie in groupKey; so entsteht je Szenario kein Array
     const visit = (i: number, depth: number, key: number, taken: number): void => {
       if (depth === dimensions.length) {
-        const left: number = this.rest[i] - taken;
+        const left: number = this.rest[i]! - taken;
         if (left >= othersStart && left <= othersEnd) {
-          add(key, this.values[i]);
+          add(key, this.values[i]!);
         }
         return;
       }
-      const column: Int32Array | null = columns[depth];
+      const column: Int32Array | null = columns[depth]!;
       if (column === null) {
-        for (const value of candidates[depth]) {
+        for (const value of candidates[depth]!) {
           visit(i, depth + 1, key * GROUP_KEY_BASE + value, taken + value);
         }
       } else {
-        visit(i, depth + 1, key * GROUP_KEY_BASE + column[i], taken);
+        visit(i, depth + 1, key * GROUP_KEY_BASE + column[i]!, taken);
       }
     };
     for (let i = 0; i < this.values.length; i++) {
@@ -283,7 +304,11 @@ export class ScenarioResults {
   /** Wert der Dimension je Szenario; nur für Städte, die einzeln aufgezählt wurden. */
   private column(dimension: Dimension): Int32Array {
     if (dimension.kind === 'city') {
-      return this.scenarios.cities[this.scenarios.relevant.indexOf(dimension.city)];
+      const column: Int32Array | undefined = cityColumn(this.scenarios, dimension.city);
+      if (column === undefined) {
+        throw missingCity(dimension.city);
+      }
+      return column;
     }
     switch (dimension.type) {
       case 'participants':
@@ -311,8 +336,8 @@ export function histogram(values: ArrayLike<number>, weights: ArrayLike<number>,
   let min: number = Infinity;
   let max: number = -Infinity;
   for (let i = 0; i < values.length; i++) {
-    min = Math.min(min, values[i]);
-    max = Math.max(max, values[i]);
+    min = Math.min(min, values[i]!);
+    max = Math.max(max, values[i]!);
   }
   if (values.length === 0) {
     return {start: 0, width: 1, counts: []};
@@ -325,7 +350,7 @@ export function histogram(values: ArrayLike<number>, weights: ArrayLike<number>,
   const start: number = Math.floor(min / width) * width;
   const counts: number[] = new Array<number>(Math.floor((max - start) / width) + 1).fill(0);
   for (let i = 0; i < values.length; i++) {
-    counts[Math.min(counts.length - 1, Math.floor((values[i] - start) / width))] += weights[i];
+    counts[Math.min(counts.length - 1, Math.floor((values[i]! - start) / width))]! += weights[i]!;
   }
   return {start, width, counts};
 }

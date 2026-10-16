@@ -1,10 +1,10 @@
 import {Context} from './context';
-import {newId} from './id';
+import {newId, PositionId} from './id';
 import {compareModifiers, factor, Modifier} from './modifiers';
 
 /** Ein Posten auf der Ausgaben- oder Einnahmenseite: Betrag mal alle Faktoren. */
 export interface Position {
-  readonly id: string;
+  readonly id: PositionId;
   readonly title: string;
   readonly amount: number;
   /** Sortiert nach {@link compareModifiers}; „pro Teilnehmer aus …“ steht immer am Ende. */

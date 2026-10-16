@@ -1,6 +1,7 @@
 import {computed, effect, inject, Injectable, signal} from '@angular/core';
 import {City, newCity} from './calculation/city';
 import {AdjustableType} from './calculation/context';
+import {CityId, PositionId} from './calculation/id';
 import {Modifier} from './calculation/modifiers';
 import {
   dataToJson, defaultPlan, emptyPlan, Plan, PlanData, planFromJson, planToData, positionsOf, Side
@@ -58,11 +59,11 @@ export class PlanStore {
     }
   }
 
-  setCityName(id: string, name: string): void {
+  setCityName(id: CityId, name: string): void {
     this.updateCity(id, (city: City): City => city.others ? city : {...city, name});
   }
 
-  setCityRange(id: string, bound: keyof Range, value: number): void {
+  setCityRange(id: CityId, bound: keyof Range, value: number): void {
     if (Number.isFinite(value)) {
       this.updateCity(id, (city: City): City =>
         ({...city, participants: withBound(city.participants, bound, value, 0)}));
@@ -75,18 +76,18 @@ export class PlanStore {
   }
 
   /** Positionen mit einem Faktor „pro Teilnehmer aus …“ für diese Stadt; solange es welche gibt, bleibt sie. */
-  usersOf(id: string): Position[] {
+  usersOf(id: CityId): Position[] {
     return positionsOf(this.plan()).filter((position: Position): boolean => position.modifiers
       .some((modifier: Modifier): boolean => modifier.kind === 'city' && modifier.city === id));
   }
 
   /** „Sonstige“ bleibt immer; das Ergebnis lässt sich mit {@link restoreCity} wieder einfügen. */
-  removeCity(id: string): Removed<City> | null {
-    const index: number = this.plan().cities.findIndex((city: City): boolean => city.id === id && !city.others);
-    if (index < 0) {
+  removeCity(id: CityId): Removed<City> | null {
+    const index: number = this.plan().cities.findIndex((city: City): boolean => city.id === id);
+    const item: City | undefined = this.plan().cities[index];
+    if (item === undefined || item.others) {
       return null;
     }
-    const item: City = this.plan().cities[index];
     this.update((plan: Plan): Plan => ({...plan, cities: plan.cities.filter((city: City): boolean => city.id !== id)}));
     return {item, index};
   }
@@ -97,31 +98,31 @@ export class PlanStore {
 
   // Positionen und Faktoren
 
-  setTitle(id: string, title: string): void {
+  setTitle(id: PositionId, title: string): void {
     this.updatePosition(id, (position: Position): Position => ({...position, title}));
   }
 
-  setAmount(id: string, amount: number | null): void {
+  setAmount(id: PositionId, amount: number | null): void {
     this.updatePosition(id, (position: Position): Position => ({...position, amount: amount ?? 0}));
   }
 
   /** `index`: die Stelle des Faktors in der Position. */
-  setGroupSize(id: string, index: number, groupSize: number | null): void {
+  setGroupSize(id: PositionId, index: number, groupSize: number | null): void {
     this.updateModifier(id, index, (modifier: Modifier): Modifier =>
       'groupSize' in modifier ? {...modifier, groupSize: groupSize ?? 0} : modifier);
   }
 
-  setCity(id: string, index: number, city: string): void {
+  setCity(id: PositionId, index: number, city: CityId): void {
     this.updateModifier(id, index, (modifier: Modifier): Modifier =>
       modifier.kind === 'city' ? {...modifier, city} : modifier);
   }
 
-  addModifier(id: string, modifier: Modifier): void {
+  addModifier(id: PositionId, modifier: Modifier): void {
     this.updatePosition(id, (position: Position): Position =>
       ({...position, modifiers: sortModifiers([...position.modifiers, modifier])}));
   }
 
-  removeModifier(id: string, index: number): void {
+  removeModifier(id: PositionId, index: number): void {
     this.updatePosition(id, (position: Position): Position =>
       ({...position, modifiers: position.modifiers.filter((_: Modifier, i: number): boolean => i !== index)}));
   }
@@ -132,12 +133,12 @@ export class PlanStore {
   }
 
   /** Das Ergebnis lässt sich mit {@link restorePosition} wieder einfügen. */
-  removePosition(side: Side, id: string): Removed<Position> | null {
+  removePosition(side: Side, id: PositionId): Removed<Position> | null {
     const index: number = this.plan()[side].findIndex((position: Position): boolean => position.id === id);
-    if (index < 0) {
+    const item: Position | undefined = this.plan()[side][index];
+    if (item === undefined) {
       return null;
     }
-    const item: Position = this.plan()[side][index];
     this.update((plan: Plan): Plan =>
       ({...plan, [side]: plan[side].filter((position: Position): boolean => position.id !== id)}));
     return {item, index};
@@ -184,7 +185,7 @@ export class PlanStore {
     this.planSignal.update(change);
   }
 
-  private updateCity(id: string, change: (city: City) => City): void {
+  private updateCity(id: CityId, change: (city: City) => City): void {
     this.update((plan: Plan): Plan =>
       ({...plan, cities: plan.cities.map((city: City): City => city.id === id ? change(city) : city)}));
   }
@@ -195,7 +196,7 @@ export class PlanStore {
       ({...plan, cities: inserted(plan.cities, city, Math.min(index, plan.cities.length - 1))}));
   }
 
-  private updatePosition(id: string, change: (position: Position) => Position): void {
+  private updatePosition(id: PositionId, change: (position: Position) => Position): void {
     // Die andere Seite bleibt dasselbe Array
     const apply = (positions: readonly Position[]): readonly Position[] =>
       positions.some((position: Position): boolean => position.id === id)
@@ -204,7 +205,7 @@ export class PlanStore {
     this.update((plan: Plan): Plan => ({...plan, debit: apply(plan.debit), credit: apply(plan.credit)}));
   }
 
-  private updateModifier(id: string, index: number, change: (modifier: Modifier) => Modifier): void {
+  private updateModifier(id: PositionId, index: number, change: (modifier: Modifier) => Modifier): void {
     this.updatePosition(id, (position: Position): Position => ({
       ...position,
       modifiers: position.modifiers.map((modifier: Modifier, i: number): Modifier =>

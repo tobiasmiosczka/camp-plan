@@ -69,7 +69,7 @@ describe('ScenarioResults', () => {
     ['B × C', [{kind: 'city', city: b.id}, {kind: 'city', city: c.id}]],
     ['Teilnehmer × B', [{kind: 'type', type: 'participants'}, {kind: 'city', city: b.id}]],
     ['A × Leiter', [{kind: 'city', city: a.id}, {kind: 'type', type: 'leaders'}]],
-    ['Sonstige (automatisch ergänzt)', [{kind: 'city', city: plan.cities[3].id}]],
+    ['Sonstige (automatisch ergänzt)', [{kind: 'city', city: plan.cities[3]!.id}]],
   ];
   for (const [name, dimensions] of cases) {
     it(`groups merged cities exactly like a full enumeration: ${name}`, () => {

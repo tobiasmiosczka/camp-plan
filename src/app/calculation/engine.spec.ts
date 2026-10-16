@@ -24,7 +24,7 @@ describe('evaluate', () => {
     expect(result.scenarios.relevant).toEqual(plan.cities.slice(0, 3).map(city => city.id));
     expect(referencedCities(plan)).toEqual(result.scenarios.relevant);
     const results = new ScenarioResults(result.scenarios, result.values, plan);
-    expect(results.domain({kind: 'city', city: plan.cities[1].id})).toEqual([0, 1, 2]);
+    expect(results.domain({kind: 'city', city: plan.cities[1]!.id})).toEqual([0, 1, 2]);
     expect(results.aggregate([{kind: 'type', type: 'days'}]).size).toBe(2);
   });
 
@@ -83,7 +83,7 @@ describe('calculationKey', () => {
 
   it('changes when a position is replaced by one with the same numbers', () => {
     const plan = defaultPlan();
-    const bus = plan.debit[4];
+    const bus = plan.debit[4]!;
     const replaced: Plan = {...plan, debit: plan.debit.map(position =>
       position === bus ? newPosition(bus.title, bus.amount, bus.modifiers) : position)};
 

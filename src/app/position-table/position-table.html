@@ -2,7 +2,7 @@
 <table mat-table [dataSource]="positions()" [trackBy]="trackById">
   <ng-container matColumnDef="position-name">
     <th mat-header-cell *matHeaderCellDef>{{ t().positions.name }}</th>
-    <td mat-cell *matCellDef="let element">
+    <td mat-cell *matCellDef="let element; table: positions()">
       <mat-form-field subscriptSizing="dynamic" class="dense name">
         <textarea matInput cdkTextareaAutosize cdkAutosizeMinRows="1" [attr.aria-label]="t().positions.name"
                   (keydown.enter)="$event.preventDefault()"
@@ -13,7 +13,7 @@
 
   <ng-container matColumnDef="position-amount">
     <th mat-header-cell *matHeaderCellDef class="text-right">{{ t().positions.amount }}</th>
-    <td mat-cell *matCellDef="let element" class="text-right">
+    <td mat-cell *matCellDef="let element; table: positions()" class="text-right">
       <mat-form-field subscriptSizing="dynamic" class="dense amount">
         <input matInput appEuroInput class="text-right" [attr.aria-label]="t().positions.amountInEuro"
                [ngModel]="element.amount" (ngModelChange)="setAmount(element, $event)"/>
@@ -24,11 +24,11 @@
 
   <ng-container matColumnDef="position-modifiers">
     <th mat-header-cell *matHeaderCellDef>{{ t().positions.multipliedBy }}</th>
-    <td mat-cell *matCellDef="let element">
+    <td mat-cell *matCellDef="let element; table: positions()">
       <mat-chip-set>
         @for (modifier of element.modifiers; track $index; let index = $index) {
           <mat-chip (removed)="removeModifier(element, index)">
-            @if (isCity(modifier)) {
+            @if (modifier.kind === 'city') {
               {{ t().modifiers.perParticipantFrom }}
               <select class="chip-select" [attr.aria-label]="t().common.city" (keydown)="$event.stopPropagation()"
                       [ngModel]="modifier.city" (ngModelChange)="setCity(element, index, $event)">
@@ -36,7 +36,7 @@
                   <option [value]="city.id">{{ cityName(city) }}</option>
                 }
               </select>
-            } @else if (isGroup(modifier)) {
+            } @else if (modifier.kind === 'personGroup' || modifier.kind === 'participantGroup') {
               {{ t().modifiers.per }}
               <input type="number" min="1" class="group-size" [attr.aria-label]="t().modifiers.groupSize" (keydown)="$event.stopPropagation()"
                      [ngModel]="modifier.groupSize" (ngModelChange)="setGroupSize(element, index, $event)"/>
@@ -64,7 +64,7 @@
 
   <ng-container matColumnDef="position-sum">
     <th mat-header-cell *matHeaderCellDef class="text-right">{{ sumLabel() }}</th>
-    <td mat-cell *matCellDef="let element" class="text-right sum">
+    <td mat-cell *matCellDef="let element; table: positions()" class="text-right sum">
       <span class="compact-label">{{ sumLabel() }}</span>
       @if (loading()) {
         <span class="skeleton"></span>
@@ -76,7 +76,7 @@
 
   <ng-container matColumnDef="position-actions">
     <th mat-header-cell *matHeaderCellDef></th>
-    <td mat-cell *matCellDef="let element">
+    <td mat-cell *matCellDef="let element; table: positions()">
       <button mat-icon-button (click)="removePosition(element)" [attr.aria-label]="t().positions.remove"
               [matTooltip]="t().positions.remove">
         <mat-icon>delete</mat-icon>

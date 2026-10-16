@@ -14,21 +14,22 @@ describe('PlanStore', () => {
 
   it('replaces the plan on every change and keeps what did not change', () => {
     const before: Plan = store.plan();
-    const halle = before.debit[0];
+    const halle = before.debit[0]!;
 
     store.setAmount(halle.id, 8);
     store.setTitle(halle.id, 'Essen');
 
     const after: Plan = store.plan();
     expect(after).not.toBe(before);
-    expect(after.debit[0]).toEqual({...halle, title: 'Essen', amount: 8});
+    expect(after.debit[0]!).toEqual({...halle, title: 'Essen', amount: 8});
     expect(halle.amount).toBe(100);
-    expect(after.debit[1]).toBe(before.debit[1]);
+    expect(after.debit[1]!).toBe(before.debit[1]!);
     expect(after.credit).toBe(before.credit);
   });
 
   it('renames cities, but never „Sonstige“', () => {
-    const [aachen, , others] = store.plan().cities;
+    const aachen = store.plan().cities[0]!;
+    const others = store.plan().cities[2]!;
 
     store.setCityName(aachen.id, 'Stadt A');
     store.setCityName(others.id, 'Andere');
@@ -49,42 +50,43 @@ describe('PlanStore', () => {
   });
 
   it('edits modifiers by their place in the position', () => {
-    const essen = store.plan().debit[1];
+    const essen = store.plan().debit[1]!;
 
     store.addModifier(essen.id, {kind: 'personGroup', groupSize: 10});
     store.setGroupSize(essen.id, 2, 4);
-    expect(store.plan().debit[1].modifiers).toEqual([...essen.modifiers, {kind: 'personGroup', groupSize: 4}]);
+    expect(store.plan().debit[1]!.modifiers).toEqual([...essen.modifiers, {kind: 'personGroup', groupSize: 4}]);
 
     store.removeModifier(essen.id, 1);
-    expect(store.plan().debit[1].modifiers.map(modifier => modifier.kind)).toEqual(['person', 'personGroup']);
+    expect(store.plan().debit[1]!.modifiers.map(modifier => modifier.kind)).toEqual(['person', 'personGroup']);
     expect(essen.modifiers).toContain(PER_DAY);
   });
 
   it('restores a removed position at its old place', () => {
-    const position = store.plan().credit[0];
+    const position = store.plan().credit[0]!;
 
     const removed = store.removePosition('credit', position.id)!;
     expect(store.plan().credit).not.toContain(position);
 
     store.restorePosition('credit', removed);
-    expect(store.plan().credit[0]).toBe(position);
+    expect(store.plan().credit[0]!).toBe(position);
   });
 
   it('adds and restores cities before „Sonstige“', () => {
     store.addCity();
     expect(store.plan().cities.map(city => city.others)).toEqual([false, false, false, true]);
 
-    const bonn = store.plan().cities[1];
+    const bonn = store.plan().cities[1]!;
     const removed = store.removeCity(bonn.id)!;
     expect(store.plan().cities).not.toContain(bonn);
     expect(store.removeCity(store.plan().cities.at(-1)!.id)).toBeNull();
 
     store.restoreCity(removed);
-    expect(store.plan().cities[1]).toBe(bonn);
+    expect(store.plan().cities[1]!).toBe(bonn);
   });
 
   it('knows which positions still use a city', () => {
-    const [aachen, , others] = store.plan().cities;
+    const aachen = store.plan().cities[0]!;
+    const others = store.plan().cities[2]!;
 
     expect(store.usersOf(aachen.id).map(position => position.title)).toEqual(['Zuschuss Aachen']);
     expect(store.usersOf(others.id)).toEqual([]);
@@ -94,8 +96,8 @@ describe('PlanStore', () => {
     TestBed.tick();
     const setItem = vi.spyOn(localStorage, 'setItem');
 
-    store.setAmount(store.plan().debit[0].id, 9);
-    store.setTitle(store.plan().debit[0].id, 'Essen');
+    store.setAmount(store.plan().debit[0]!.id, 9);
+    store.setTitle(store.plan().debit[0]!.id, 'Essen');
     TestBed.tick();
 
     expect(setItem).toHaveBeenCalledTimes(1);

@@ -14,18 +14,18 @@ function files(dir: string, extensions: string[]): string[] {
 }
 
 describe('icon font', () => {
-  const listed: string[] = /icon_names=([a-z_,]+)/.exec(readFileSync('src/index.html', 'utf8'))![1].split(',');
+  const listed: string[] = /icon_names=([a-z_,]+)/.exec(readFileSync('src/index.html', 'utf8'))?.[1]?.split(',') ?? [];
 
   it('contains every icon the app uses', () => {
     const used = new Set<string>();
     for (const path of files('src/app', ['.html'])) {
-      for (const [, name] of readFileSync(path, 'utf8').matchAll(/<mat-icon[^>]*>\s*([a-z_]+)\s*<\/mat-icon>/g)) {
+      for (const [, name = ''] of readFileSync(path, 'utf8').matchAll(/<mat-icon[^>]*>\s*([a-z_]+)\s*<\/mat-icon>/g)) {
         used.add(name);
       }
     }
     // Icons, die erst zur Laufzeit eingesetzt werden ({{ row.icon }})
     for (const path of files('src/app', ['.ts'])) {
-      for (const [, name] of readFileSync(path, 'utf8').matchAll(/\bicon: '([a-z_]+)'/g)) {
+      for (const [, name = ''] of readFileSync(path, 'utf8').matchAll(/\bicon: '([a-z_]+)'/g)) {
         used.add(name);
       }
     }

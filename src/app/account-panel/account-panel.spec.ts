@@ -52,7 +52,7 @@ describe('AccountPanel', () => {
     expect(fixture.nativeElement.querySelectorAll('.charts .chart-skeleton').length).toBe(2);
 
     const [deferBlock] = await fixture.getDeferBlocks();
-    await deferBlock.render(DeferBlockState.Complete);
+    await deferBlock!.render(DeferBlockState.Complete);
 
     expect(charts()).toBe(2);
     expect(fixture.nativeElement.querySelectorAll('.charts .chart-skeleton').length).toBe(0);

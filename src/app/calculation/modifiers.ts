@@ -1,10 +1,14 @@
 import {City} from './city';
 import {Context} from './context';
+import {CityId} from './id';
 
-/** Faktoren ohne Einstellungen. */
-export type FixedKind = 'person' | 'participant' | 'leader' | 'day' | 'night';
+/** Faktoren ohne Einstellungen, in der Reihenfolge des Auswahlmenüs. */
+const FIXED_KINDS = ['person', 'participant', 'leader', 'day', 'night'] as const;
 /** Faktoren „pro angefangene Gruppe“ mit einstellbarer Gruppengröße. */
-export type GroupKind = 'personGroup' | 'participantGroup';
+const GROUP_KINDS = ['personGroup', 'participantGroup'] as const;
+
+export type FixedKind = typeof FIXED_KINDS[number];
+export type GroupKind = typeof GROUP_KINDS[number];
 /** Art eines Faktors, unabhängig von der Sprache: für Beschriftungen und das Dateiformat. */
 export type ModifierKind = FixedKind | GroupKind | 'city';
 
@@ -20,7 +24,7 @@ export interface GroupModifier {
 /** „pro Teilnehmer aus …“; verweist über die ID auf eine Stadt des Plans. */
 export interface CityModifier {
   readonly kind: 'city';
-  readonly city: string;
+  readonly city: CityId;
 }
 
 /** Womit der Betrag einer Position malgenommen wird. */
@@ -45,19 +49,14 @@ export function perCity(city: City): CityModifier {
 }
 
 /** Alle Arten in der Reihenfolge des Auswahlmenüs; in dieser Reihenfolge stehen auch die Faktoren einer Position. */
-export const MODIFIER_KINDS: readonly ModifierKind[] = [
-  'person', 'participant', 'leader', 'day', 'night', 'personGroup', 'participantGroup', 'city',
-];
-
-const FIXED_KINDS: readonly string[] = MODIFIER_KINDS.slice(0, 5);
-const GROUP_KINDS: readonly string[] = ['personGroup', 'participantGroup'];
+export const MODIFIER_KINDS: readonly ModifierKind[] = [...FIXED_KINDS, ...GROUP_KINDS, 'city'];
 
 export function isFixedKind(kind: unknown): kind is FixedKind {
-  return typeof kind === 'string' && FIXED_KINDS.includes(kind);
+  return (FIXED_KINDS as readonly unknown[]).includes(kind);
 }
 
 export function isGroupKind(kind: unknown): kind is GroupKind {
-  return typeof kind === 'string' && GROUP_KINDS.includes(kind);
+  return (GROUP_KINDS as readonly unknown[]).includes(kind);
 }
 
 /** Ein neuer Faktor, wie ihn das Menü „Faktor hinzufügen“ anlegt: Gruppen zu 10, Städte mit der ersten Stadt. */
@@ -68,7 +67,11 @@ export function createModifier(kind: ModifierKind, cities: readonly City[]): Mod
   if (isGroupKind(kind)) {
     return {kind, groupSize: 10};
   }
-  return perCity(cities[0]);
+  const city: City | undefined = cities[0];
+  if (city === undefined) {
+    throw new Error('Ein Plan hat immer mindestens „Sonstige“ als Stadt.');
+  }
+  return perCity(city);
 }
 
 /** Der Faktor in einem Szenario. */

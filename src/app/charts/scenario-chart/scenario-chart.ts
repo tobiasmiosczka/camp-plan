@@ -129,26 +129,25 @@ export class ScenarioChart implements ChartSource {
     if (this.results().isEmpty()) {
       return {data: [], layout: style.base(), title: valueLabel, subtitle: t.charts.noScenarios};
     }
-    // Achsen mit nur einem Wert tragen nichts zum Vergleich bei
-    const selected: Dimension[] = [x, y]
-      .filter((dimension: Dimension | null): dimension is Dimension => dimension !== null);
-    const varying: Dimension[] = selected
-      .filter((dimension: Dimension): boolean => this.results().domain(dimension).length > 1);
-    const shown: Dimension[] = varying.length > 0 ? varying : selected.slice(0, 1);
+    // Achsen mit nur einem Wert tragen nichts zum Vergleich bei; variiert keine, bleibt die X-Achse
+    const varies = (dimension: Dimension | null): dimension is Dimension =>
+      dimension !== null && this.results().domain(dimension).length > 1;
+    const [first = x, second] = [x, y].filter(varies);
+    const shown: Dimension[] = second ? [first, second] : [first];
     const groups: Map<number, ValueRange> = this.results().aggregate(shown);
     const hasBand: boolean = [...groups.values()].some((group: ValueRange): boolean => group.min !== group.max);
     const title: string = `${valueLabel}: ${shown.map((dimension: Dimension): string => this.dimensionLabel(dimension)).join(' × ')}`;
 
-    if (shown.length === 2) {
+    if (second) {
       return {
-        ...this.surface(style, shown[0], shown[1], groups, valueLabel, hasBand),
+        ...this.surface(style, first, second, groups, valueLabel, hasBand),
         title,
         subtitle: hasBand ? t.charts.surfaceBand : t.charts.surfaceFlat,
       };
     }
-    const chart = this.results().domain(shown[0]).length > 8
-      ? this.line(style, shown[0], groups, valueLabel, hasBand)
-      : this.bars(style, shown[0], groups, valueLabel, hasBand);
+    const chart = this.results().domain(first).length > 8
+      ? this.line(style, first, groups, valueLabel, hasBand)
+      : this.bars(style, first, groups, valueLabel, hasBand);
     return {...chart, title, subtitle: hasBand ? t.charts.band : ''};
   }
 
@@ -192,8 +191,9 @@ export class ScenarioChart implements ChartSource {
         ...(hasBand ? [surface(style.t.charts.maximum,   (r: ValueRange): number => r.max, false, 0.55)] : []),
         {
           name: '0',
-          x: [xValues[0], xValues[xValues.length - 1]],
-          y: [yValues[0], yValues[yValues.length - 1]],
+          // Die Werte sind aufsteigend: Die Ebene reicht vom kleinsten bis zum größten
+          x: [Math.min(...xValues), Math.max(...xValues)],
+          y: [Math.min(...yValues), Math.max(...yValues)],
           z: [[0, 0], [0, 0]],
           opacity: 0.35,
           type: 'surface',
